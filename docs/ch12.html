@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12장. 운동 에너지에서 운동 방정식으로: 질량 행렬, 원심력·코리올리 힘, 중력</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch11.html">← 이전 장</a></header>
+<main>
+<h1>12장. 운동 에너지에서 운동 방정식으로: 질량 행렬, 원심력·코리올리 힘, 중력</h1>
+<!-- card: 강의 12강 · 질량 중심 자코비안으로 만드는 질량 행렬, 크리스토펠 기호, 중력 벡터 · 연습문제와 파이썬 확인 코드 -->
+
+<p class="lead">링크마다 운동 에너지를 적어 더하면 질량 행렬 M(q)이 나온다. M을 미분하면 원심력·코리올리 힘이, 질량 중심 높이를 미분하면 중력이 나와 종이 팔의 M q̈ + V + G = τ가 끝까지 완성된다. 강의 12강(74분)에 해당한다.</p>
+
+<h2>12.1 11장에서 이어서: 무엇을 구하나</h2>
+<p>11.2절에서 로봇 팔의 운동 방정식이 아래 모양이라는 것을 보았다. 관절마다 모터가 토크 τ를 내면, 관절 가속도 q̈가 이 식으로 정해진다.</p>
+<div class="math" data-tex="M(q)\,\ddot q + V(q,\dot q) + G(q) = \tau"></div>
+<ul>
+<li><strong>M(q)</strong>: 질량 행렬. 관절이 n개면 n × n이고, 자세 q에 따라 바뀐다.</li>
+<li><strong>V(q, q̇)</strong>: 원심력과 코리올리 힘. 관절 속도의 제곱과 곱에서 생긴다.</li>
+<li><strong>G(q)</strong>: 중력. 자세만 알면 정해진다.</li>
+<li><strong>τ</strong>: 관절마다 모터가 내는 토크. 직동 관절이면 힘이다.</li>
+</ul>
+<h3>라그랑주 방정식에서 출발</h3>
+<p>11.10절은 이 식을 <strong>라그랑주 방정식</strong>(Lagrange equations)으로 얻었다. 필요한 것은 운동 에너지 K와 위치 에너지 U 둘뿐이다. U는 자세 q만의 함수라서 따로 떼어 쓸 수 있다.</p>
+<div class="math" data-tex="\frac{d}{dt}\frac{\partial K}{\partial \dot q} - \frac{\partial K}{\partial q} + \frac{\partial U}{\partial q} = \tau"></div>
+<p>운동 에너지는 관절 속도로 K = ½ q̇ᵀ M(q) q̇라고 쓸 수 있다. 그래서 M을 운동 에너지 행렬이라고도 한다. 이것을 넣으면 앞의 두 항이 M q̈ + V가 되고, 셋째 항이 G가 된다.</p>
+<div class="math" data-tex="V = \dot M\,\dot q - \frac{1}{2}\begin{bmatrix} \dot q^{T}\, (\partial M/\partial q_1)\; \dot q \\ \vdots \\ \dot q^{T}\, (\partial M/\partial q_n)\; \dot q \end{bmatrix}"></div>
+<div class="math" data-tex="G = \frac{\partial U}{\partial q}"></div>
+<h3>오늘의 순서: M → V → G</h3>
+<p>V의 식에는 M과 q̇만 들어 있다. 그러니 M만 구하면 V는 미분으로 따라 나온다. 11.10절 끝에서 예고한 대로, 이 장은 M을 직접 구하는 데서 시작한다.</p>
+<ol>
+<li>링크마다 운동 에너지를 적어 더하고, 거기서 M을 꺼낸다(12.2~12.5절).</li>
+<li>M을 미분해 V를 만든다(12.6~12.8절).</li>
+<li>질량 중심의 높이로 G를 만든다(12.9절). 교수는 "G는 식은 죽 먹기"라고 한다.</li>
+</ol>
+<p>V의 식에서 바로 보이는 것이 있다. 팔이 멈춰 있으면(q̇ = 0) 모든 항에 0이 곱해지고, M이 일정하면 Ṁ과 ∂M/∂q가 0이다. 그러니 원심력·코리올리 힘은 <strong>팔이 움직이는 중이고, 자세에 따라 M이 바뀔 때만</strong> 생긴다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=334">05:34 라그랑주 방정식 다시 보기</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=457">07:37 K = ½ q̇ᵀMq̇</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=581">09:41 M을 찾으면 V, 그다음 G</a></p>
+<h2>12.2 링크 하나의 운동 에너지</h2>
+<p>M은 운동 에너지 안에 숨어 있다. 그러니 링크 하나의 운동 에너지부터 정확히 적는다. 교수는 "운동 에너지를 이해하면 동역학을 다 가진 것이고, 나머지는 수학일 뿐"이라고 강조한다.</p>
+<h3>점 하나: ½ m v²</h3>
+<p><strong>운동 에너지</strong>(kinetic energy)는 멈춰 있던 물체를 지금 속도까지 끌어올리는 데 바깥 힘이 한 일이다. 질량 m인 점이 빠르기 v로 움직이면 ½ m v²이다. 속도가 화살표 v로 주어지면 v² 대신 vᵀv를 쓴다.</p>
+<blockquote>
+<p><strong>수학 더하기: vᵀv.</strong> 세로 벡터 v = (v₁, v₂, v₃)의 전치 vᵀ는 가로로 눕힌 것이다. vᵀv = v₁² + v₂² + v₃²로, 길이의 제곱이다.</p>
+<p>가운데에 행렬을 끼운 q̇ᵀ M q̇도 결과는 숫자 하나다(11.2절). 이런 꼴을 <strong>이차 형식</strong>(quadratic form)이라 한다.</p>
+</blockquote>
+<h3>링크: 미끄러지기 + 제자리 돌기</h3>
+<p>링크는 점이 아니다. 링크가 돌면 링크 위의 점마다 속도가 다르다. 그래도 운동 에너지는 두 몫으로 깔끔하게 나뉜다.</p>
+<div class="math" data-tex="K_i = \frac{1}{2}\, m_i\, v_{c_i}^{T} v_{c_i} + \frac{1}{2}\, \omega_i^{T}\, I_{c_i}\, \omega_i"></div>
+<ul>
+<li>v<sub>ci</sub>: 링크 i의 질량 중심 c<sub>i</sub>의 속도</li>
+<li>ω<sub>i</sub>: 링크 i의 각속도</li>
+<li>I<sub>ci</sub>: 질량 중심을 원점으로 잡은 관성 텐서(11.4절)</li>
+</ul>
+<p>앞의 몫은 링크 전체가 질량 중심 속도로 미끄러지는 몫이다. 뒤의 몫은 질량 중심을 축으로 제자리에서 도는 몫이다.</p>
+<figure data-fig="fig12_1"><div class="fig-title">링크의 움직임 = 통째로 미끄러지기 + 질량 중심 둘레로 돌기</div><div class="fig-body"></div><div class="fig-note">링크 2(15 g, 8 cm)가 한쪽 끝을 축으로 2 rad/s로 돌 때다. 화살표와 그 위 숫자는 그 점의 속도(cm/s), 맨 아래 숫자는 운동 에너지(g·cm²/s²)다.</div><figcaption>그림 12-1 · 끝을 축으로 도는 링크의 운동 에너지 나누기</figcaption></figure>
+<p>그림의 링크는 왼쪽 끝을 축으로 돈다. 왼쪽 끝은 멈춰 있고 오른쪽 끝이 가장 빠르다. 이 속도 분포는 ①과 ②를 점마다 더한 것과 같다.</p>
+<ul>
+<li>① 모든 점이 질량 중심 속도 8 cm/s로 함께 간다. ½ × 15 × 8² = 480이다.</li>
+<li>② 질량 중심을 축으로 2 rad/s로 돈다. 가운데는 0이고 양 끝이 ±8 cm/s다. 막대는 I<sub>c</sub> = m l²/12 = 15 × 64/12 = 80이라 ½ × 80 × 2² = 160이다.</li>
+<li>합은 640이다. 끝을 축으로 도는 막대의 관성 m l²/3 = 320으로 바로 구한 ½ × 320 × 2² = 640과 같다.</li>
+</ul>
+<p>손끝에 매단 작은 추처럼 크기가 없는 점이라면 ② 몫은 0이다. 제자리에서 돌아도 아무것도 움직이지 않아서 I<sub>c</sub> = 0이고, ½ m v<sub>c</sub>ᵀv<sub>c</sub>만 남는다. 1장 그림 1-5는 링크 무게를 가운데 한 점에 모아서 이 몫만 셌다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 꼭 질량 중심을 기준으로 나누어야 한다. 다른 점을 기준으로 잡으면 미끄러지기와 돌기가 섞인 항이 하나 더 생긴다.</p>
+<p>평면 팔에서는 ω가 책상 면에 수직인 z 방향뿐이다. 그래서 ωᵀI<sub>c</sub>ω = I<sub>zz</sub>ω<sub>z</sub>²로, 관성 텐서의 한 칸만 쓴다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=705">11:45 운동 에너지란</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=768">12:48 멈춘 상태에서 v까지 한 일</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=831">13:51 도는 몸의 운동 에너지</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=924">15:24 두 몫을 더한다</a></p>
+<h2>12.3 팔 전체: 운동 에너지에서 M 꺼내기</h2>
+<h3>같은 에너지를 두 가지로 적는다</h3>
+<p>팔 전체의 운동 에너지는 링크마다의 K<sub>i</sub>를 더한 것이다. 이때는 관절이 어떻게 이어졌는지 생각하지 않아도 된다. 링크를 하나씩 보며 더하기만 한다.</p>
+<div class="math" data-tex="K = \sum_{i=1}^{n} \left( \frac{1}{2}\, m_i\, v_{c_i}^{T} v_{c_i} + \frac{1}{2}\, \omega_i^{T} I_{c_i} \omega_i \right)"></div>
+<p>한편 같은 에너지를 관절 속도로 적으면 K = ½ q̇ᵀ M q̇다. 두 식은 같은 값이다. 그러니 위의 합을 "½ q̇ᵀ (무엇) q̇" 꼴로 고쳐 쓰면, 그 (무엇)이 M이다.</p>
+<h3>질량 중심의 자코비안</h3>
+<p>고쳐 쓰려면 v<sub>ci</sub>와 ω<sub>i</sub>를 q̇로 적어야 한다. 6~7장의 자코비안이 바로 그 일을 한다. 다만 이번에는 손끝이 아니라 <strong>링크 i의 질량 중심</strong>에서 잰 자코비안이다.</p>
+<div class="math" data-tex="v_{c_i} = J_{v_i}\,\dot q,\qquad \omega_i = J_{\omega_i}\,\dot q"></div>
+<ul>
+<li>J<sub>vi</sub>: 질량 중심 위치 p<sub>ci</sub>를 q₁, …, q<sub>i</sub>로 편미분한 열을 늘어놓고, 나머지 열은 0으로 채운다.</li>
+<li>J<sub>ωi</sub>: 7장처럼 축 z₁, …, z<sub>i</sub>를 늘어놓고(직동 관절 칸은 0), 나머지 열은 0으로 채운다.</li>
+</ul>
+<div class="math" data-tex="J_{v_i} = \Big[\ \frac{\partial p_{c_i}}{\partial q_1}\ \ \cdots\ \ \frac{\partial p_{c_i}}{\partial q_i}\ \ 0\ \cdots\ 0\ \Big]"></div>
+<div class="math" data-tex="J_{\omega_i} = \Big[\ \bar\varepsilon_1 z_1\ \ \cdots\ \ \bar\varepsilon_i z_i\ \ 0\ \cdots\ 0\ \Big]"></div>
+<p>0 열을 붙여 열 수를 n개로 맞춘다. 그래야 길이 n인 q̇를 곱할 수 있다. ε̄<sub>i</sub>는 7장의 표시로, 회전 관절이면 1, 직동 관절이면 0이다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> J<sub>vi</sub>의 i + 1번째 열부터는 왜 0인가?</p>
+</blockquote>
+<p>관절 i + 1부터는 링크 i보다 바깥에 있다. 바깥 관절이 돌면 그 뒤의 링크만 움직이고 링크 i는 그대로다. 종이 팔에서 팔꿈치를 돌려도 링크 1의 질량 중심은 꼼짝하지 않는다.</p>
+<h3>넣고 묶으면 M이 나온다</h3>
+<p>v<sub>ci</sub> = J<sub>vi</sub> q̇를 넣으면 v<sub>ci</sub>ᵀv<sub>ci</sub> = q̇ᵀ J<sub>vi</sub>ᵀ J<sub>vi</sub> q̇다. 각속도 쪽도 똑같이 바뀐다.</p>
+<blockquote>
+<p><strong>수학 더하기: 곱의 전치.</strong> (A x)ᵀ = xᵀ Aᵀ다. 곱을 전치하면 순서가 뒤집히고 각각 전치된다. 그래서 (J q̇)ᵀ(J q̇) = q̇ᵀ Jᵀ J q̇가 되고, 가운데 Jᵀ J는 정사각 행렬이다.</p>
+</blockquote>
+<p>q̇는 링크 번호 i와 상관없으니 합 바깥으로 꺼낸다.</p>
+<div class="math" data-tex="K = \frac{1}{2}\,\dot q^{T} \left[ \sum_{i=1}^{n} \Big( m_i\, J_{v_i}^{T} J_{v_i} + J_{\omega_i}^{T} I_{c_i} J_{\omega_i} \Big) \right] \dot q"></div>
+<p>대괄호 안이 바로 M이다.</p>
+<div class="math" data-tex="M(q) = \sum_{i=1}^{n} \Big( m_i\, J_{v_i}^{T} J_{v_i} + J_{\omega_i}^{T}\, I_{c_i}\, J_{\omega_i} \Big)"></div>
+<p>교수는 이 식을 보이며 "정말 놀랍다"고 한다. 질량 행렬은 질량 중심 자코비안의 Jᵀ J에 질량과 관성을 곱해 더한 것뿐이다. 링크마다 자기 몫을 따로 계산해 더하면 된다.</p>
+<figure data-fig="fig12_2"><div class="fig-title">링크마다 자기 몫을 M에 더한다</div><div class="fig-body"></div><div class="fig-note">c₁은 어깨만 움직이므로 링크 1은 왼쪽 위 칸에만 보탠다. c₂는 두 관절이 다 움직이므로 링크 2는 네 칸 모두에 보탠다. 단위는 g·cm²다.</div><figcaption>그림 12-2 · 종이 팔(θ₁ = 30°, θ₂ = 60°)에서 링크가 M에 보태는 몫</figcaption></figure>
+<blockquote>
+<p><strong>알아 두기.</strong> J<sub>ωi</sub>와 I<sub>ci</sub>는 같은 좌표계의 숫자여야 한다. J<sub>ωi</sub>를 받침 {0}의 숫자로 적었다면 I<sub>ci</sub>도 {0}의 방향으로 돌린 R I<sub>ci</sub> Rᵀ를 쓴다(11.6절). 평면 팔은 z축으로만 돌아서 I<sub>zz</sub>가 그대로이니 걱정하지 않아도 된다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=987">16:27 운동 에너지를 다 더한다</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=1144">19:04 무엇이 필요한가: 자코비안</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=1546">25:46 M이 보인다</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=1705">28:25 질량 중심 자코비안의 정의</a></p>
+<h2>12.4 종이 팔의 질량 행렬</h2>
+<p>이제 종이 팔로 직접 계산한다. 링크는 1장의 예시 무게 그대로인, 고르게 생긴 종이 막대다. 손에 든 물건은 연습문제 3에서 더한다.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>링크 1</th>
+<th>링크 2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>길이</td>
+<td>l₁ = 10 cm</td>
+<td>l₂ = 8 cm</td>
+</tr>
+<tr>
+<td>질량</td>
+<td>m₁ = 20 g</td>
+<td>m₂ = 15 g</td>
+</tr>
+<tr>
+<td>질량 중심까지 (가운데)</td>
+<td>l<sub>c1</sub> = 5 cm</td>
+<td>l<sub>c2</sub> = 4 cm</td>
+</tr>
+<tr>
+<td>질량 중심 둘레 관성 m l²/12 (11.4절)</td>
+<td>I₁ = 166.7 g·cm²</td>
+<td>I₂ = 80 g·cm²</td>
+</tr>
+</tbody>
+</table>
+<h3>① 질량 중심 위치</h3>
+<p>7장처럼 s₁ = sin θ₁, c₁₂ = cos(θ₁ + θ₂)로 줄여 쓴다.</p>
+<div class="math" data-tex="p_{c_1} = \begin{bmatrix} l_{c1} c_1 \\ l_{c1} s_1 \end{bmatrix},\qquad
+p_{c_2} = \begin{bmatrix} l_1 c_1 + l_{c2} c_{12} \\ l_1 s_1 + l_{c2} s_{12} \end{bmatrix}"></div>
+<h3>② 질량 중심 자코비안</h3>
+<p>θ₁, θ₂로 편미분해 열을 만든다. J<sub>v1</sub>의 둘째 열은 0이다.</p>
+<div class="math" data-tex="J_{v_1} = \begin{bmatrix} -l_{c1} s_1 &amp; 0 \\ l_{c1} c_1 &amp; 0 \end{bmatrix},\qquad
+J_{v_2} = \begin{bmatrix} -l_1 s_1 - l_{c2} s_{12} &amp; -l_{c2} s_{12} \\ l_1 c_1 + l_{c2} c_{12} &amp; l_{c2} c_{12} \end{bmatrix}"></div>
+<p>각속도는 z 성분만 있다. 링크 1은 θ̇₁로, 링크 2는 θ̇₁ + θ̇₂로 돈다. 그래서 J<sub>ω1</sub> = [1 0], J<sub>ω2</sub> = [1 1]이다(z 줄만 적었다).</p>
+<h3>③ 곱해서 더하기</h3>
+<p>J<sub>v2</sub>ᵀJ<sub>v2</sub>의 칸은 열끼리의 내적이다. 7장에서 본 대로 각 열은 관절에서 c₂까지의 화살표를 90° 돌린 것이다. 둘 다 돌려도 내적은 그대로라서, 화살표끼리 내적하면 된다.</p>
+<ul>
+<li>어깨 → c₂ 화살표 a의 길이 제곱: |a|² = l₁² + l<sub>c2</sub>² + 2l₁l<sub>c2</sub> cos θ₂ (코사인 법칙)</li>
+<li>팔꿈치 → c₂ 화살표 b의 길이 제곱: |b|² = l<sub>c2</sub>²</li>
+<li>두 화살표의 내적: a·b = l<sub>c2</sub>² + l₁l<sub>c2</sub> cos θ₂</li>
+</ul>
+<p>네 몫을 더하면 종이 팔의 질량 행렬이다.</p>
+<div class="math" data-tex="M = (m_1 l_{c1}^2 + I_1)\begin{bmatrix}1&amp;0\\0&amp;0\end{bmatrix} + m_2 \begin{bmatrix} |a|^2 &amp; a\cdot b \\ a\cdot b &amp; |b|^2 \end{bmatrix} + I_2 \begin{bmatrix}1&amp;1\\1&amp;1\end{bmatrix}"></div>
+<div class="math" data-tex="\begin{aligned}
+M_{11} &amp;= m_1 l_{c1}^2 + I_1 + m_2\,(l_1^2 + l_{c2}^2 + 2 l_1 l_{c2} \cos\theta_2) + I_2 \\
+M_{12} &amp;= M_{21} = m_2\,(l_{c2}^2 + l_1 l_{c2} \cos\theta_2) + I_2 \\
+M_{22} &amp;= m_2\, l_{c2}^2 + I_2
+\end{aligned}"></div>
+<p>숫자를 넣는다. 단위는 g·cm²다.</p>
+<div class="math" data-tex="M(\theta_2) = \begin{bmatrix} 2487 + 1200\cos\theta_2 &amp; 320 + 600\cos\theta_2 \\ 320 + 600\cos\theta_2 &amp; 320 \end{bmatrix}"></div>
+<p>2487은 링크 1의 몫 666.7과 링크 2의 몫 1820을 더한 것이다. 1200 = 2m₂l₁l<sub>c2</sub>, 600 = m₂l₁l<sub>c2</sub>다.</p>
+<figure data-fig="fig12_3"><div class="fig-title">팔꿈치를 접으면 M₁₁이 cos θ₂를 따라 줄어든다</div><div class="fig-body"></div><div class="fig-note">M에 θ₁은 들어 있지 않아서 θ₁은 20°로 두고 그렸다. 아래 막대는 M₁₁을 링크 1, 링크 2, 손에 든 물건의 몫으로 나눈 것이다.</div><figcaption>그림 12-3 · 직접 접어 보기: 종이 팔의 질량 행렬</figcaption></figure>
+<p>해 볼 것 세 가지:</p>
+<ol>
+<li>θ₂ = 0°(쭉 편 팔): M = [[3687, 920], [920, 320]]이다. M₁₁이 가장 크다.</li>
+<li>θ₂를 접어 간다. M₁₁과 M₁₂는 cos θ₂를 따라 줄고, M₂₂는 320에서 움직이지 않는다. θ₂가 122°를 넘으면 M₁₂가 음수가 된다.</li>
+<li>물건을 50 g으로 올린다. 편 팔의 M₁₁이 3687에서 19887로 5배 넘게 커진다. 어깨에서 먼 무게는 거리의 제곱으로 크게 보인다.</li>
+</ol>
+<p>50 g을 든 편 팔의 M = [[19887, 8120], [8120, 3520]]은 11.9절에서 뉴턴-오일러로 한 열씩 채운 값과 같다. 두 방법이 같은 M을 준다.</p>
+<h3>1.4절의 "어깨가 가벼워진다"는 M₁₁이었다</h3>
+<p>1.4절에서 팔꿈치를 접으면 어깨가 돌리기 쉬워진다고 했다. 그때 막대로 보인 "어깨가 느끼는 무거움"이 바로 M₁₁이다. M₁₁ 안의 2m₂l₁l<sub>c2</sub> cos θ₂가 접을수록 작아져서 어깨가 가벼워진다.</p>
+<p>그림 1-5는 링크 무게를 가운데 한 점에 모으고(I = 0), 손에 50 g을 들린 M₁₁이었다. 이 장의 막대 모형으로 다시 계산해도 150°로 접으면 편 팔의 14%쯤으로 준다(연습문제 3).</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> M에는 θ₁이 하나도 들어 있지 않다. 왜 그럴까?</p>
+</blockquote>
+<p>어깨를 돌리면 팔 전체가 모양 그대로 돈다. 어깨에서 본 무게의 배치가 변하지 않으니 돌리기 어려운 정도도 같다. 그래서 M은 팔 모양을 정하는 θ₂만의 함수다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=1609">26:49 링크마다 몫을 더한다</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=1959">32:39 자세를 바꾸면 M₁₁이 바뀐다</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3874">1:04:34 질량의 몫은 거리의 제곱</a></p>
+<h2>12.5 질량 행렬을 읽는 법</h2>
+<p>M의 칸마다 몸으로 느낄 수 있는 뜻이 있다. 강의는 교수의 팔을 예로 칸을 하나씩 읽는다.</p>
+<figure data-fig="fig12_4"><div class="fig-title">대각 칸은 혼자 돌릴 때의 관성, 비대각 칸은 서로 끌려가는 정도</div><div class="fig-body"></div><div class="fig-note">자물쇠는 그 관절을 얼려 둔다는 뜻이다. 점선은 조금 움직인 뒤의 모습이다.</div><figcaption>그림 12-4 · 질량 행렬의 칸 읽기</figcaption></figure>
+<h3>대각 칸: 다른 관절을 얼리고 돌릴 때의 관성</h3>
+<p>(가) 팔꿈치를 얼리면 팔은 막대 하나다. 책상 위에서 멈춘 팔을 어깨로 돌리기 시작하면 τ₁ = M₁₁ θ̈₁이다. 그래서 M₁₁은 <strong>팔꿈치를 얼렸을 때 어깨가 느끼는 관성</strong>, 곧 진자 하나의 관성이다.</p>
+<p>(나) M₂₂는 어깨를 얼리고 팔꿈치만 돌릴 때의 관성이다. 팔뚝 하나가 팔꿈치를 축으로 도는 관성이라 늘 같다. 종이 팔은 M₂₂ = m₂l₂²/3 = 320이다.</p>
+<p>일반적으로 마지막 칸 M<sub>nn</sub>은 늘 일정하다. 앞쪽 칸 M<sub>ii</sub>는 <strong>자기보다 바깥 관절</strong> q<sub>i+1</sub>, …, q<sub>n</sub>에만 달렸다. M₁₁은 θ₁에 달리지 않고, M 전체가 q₁과 상관없다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 강의에서 한 학생이 "M<sub>nn</sub>은 마지막 관절 q<sub>n</sub>의 함수"라고 답한다. 무엇이 틀렸나?</p>
+</blockquote>
+<p>마지막 관절을 돌려도 마지막 링크는 모양 그대로 자기 축 둘레를 돈다. 축에서 본 질량의 배치가 그대로이니 관성도 그대로다. M에 θ₁이 없는 것과 같은 까닭이다.</p>
+<h3>비대각 칸: 한 관절의 가속이 다른 관절에 걸린다</h3>
+<p>첫째 줄을 풀어 쓰면 τ₁ = M₁₁θ̈₁ + M₁₂θ̈₂ + V₁ + G₁이다. 팔꿈치만 가속해도(θ̈₂ ≠ 0) 어깨에 M₁₂θ̈₂만큼 토크가 걸린다. (다)처럼 어깨가 제자리를 지키려면 어깨 모터가 그만큼 버텨야 한다.</p>
+<p>이렇게 관절끼리 서로 끌려가는 것이 11.2절의 <strong>얽힘</strong>(coupling)이다. M은 <strong>대칭</strong>이라 M₁₂ = M₂₁이다. 팔꿈치가 어깨를 끄는 정도와 어깨가 팔꿈치를 끄는 정도가 같다.</p>
+<h3>양의 정부호: 질량은 늘 양수</h3>
+<p>움직이는 물체의 운동 에너지는 반드시 양수다. 그러니 q̇ ≠ 0인 모든 q̇에서 q̇ᵀ M q̇ &gt; 0이다. 11.2절에서 본 <strong>양의 정부호</strong>(positive definite)로, "질량은 양수"를 행렬로 넓힌 것이다.</p>
+<blockquote>
+<p><strong>수학 더하기: 2 × 2가 양의 정부호인지 보는 법.</strong> 대칭인 2 × 2 행렬은 M₁₁ &gt; 0이고 det M = M₁₁M₂₂ − M₁₂² &gt; 0이면 양의 정부호다. 종이 팔은 det M = 693,333 − 360,000 cos²θ₂다. cos²θ₂ ≤ 1이라 가장 작아도 333,333으로, 어느 자세에서나 양수다.</p>
+</blockquote>
+<h3>받침에 관절을 하나 더 달면</h3>
+<p>팔꿈치 관절 하나만 있는 로봇의 질량 행렬은 숫자 하나 [320]이다. 이 로봇을 어깨 관절 위에 얹으면 종이 팔이 된다. 종이 팔의 M에서 오른쪽 아래 칸은 그 320 그대로이고, 새 관절의 줄과 칸만 더해진다.</p>
+<p>강의는 이것을 "같은 블록이 그대로 끼워진다"고 설명한다. 새로 생긴 비대각 칸이 새 관절과 원래 로봇 사이의 얽힘이다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 실제 관절은 모터에 감속기를 달아 쓴다. 감속비가 N이면 모터 회전자의 관성이 N²배로 커져서 그 관절의 대각 칸에 더해진다. 감속비가 큰 팔에서는 이 몫이 링크의 관성보다 커서, M이 거의 일정한 대각 행렬처럼 보이기도 한다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=1862">31:02 M₁₁은 얼린 팔의 관성</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=2020">33:40 Mₙₙ은 상수</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=2370">39:30 비대각 칸은 얽힘</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=2430">40:30 양의 정부호</a></p>
+<h2>12.6 원심력과 코리올리 힘: 몸으로 먼저 느끼기</h2>
+<p>V를 계산하기 전에 그 정체를 몸으로 느껴 보자. V에는 두 종류가 있다. 한 관절 속도의 제곱(θ̇₁², θ̇₂²)에 비례하는 <strong>원심력</strong>(centrifugal force)과, 두 관절 속도의 곱(θ̇₁θ̇₂)에 비례하는 <strong>코리올리 힘</strong>(Coriolis force)이다.</p>
+<figure data-fig="fig12_5"><div class="fig-title">돌면 바깥으로 쏠리고, 돌면서 반지름을 바꾸면 옆으로 밀어야 한다</div><div class="fig-body"></div><div class="fig-note">(가) 어깨가 θ̇₁로 돌면 팔뚝의 질량 중심 c₂가 큰 원을 그린다. (나) 도는 판 위의 구슬이 레일을 따라 바깥으로 나간다. 흐린 점은 조금 전의 구슬이다.</div><figcaption>그림 12-5 · 원심력과 코리올리 힘의 느낌</figcaption></figure>
+<h3>원심력: 돌면 바깥으로 쏠린다</h3>
+<p>회전목마를 타면 몸이 바깥으로 쏠리고, 11.2절에서 교수가 돌린 마이크도 바깥으로 당겨졌다. (가)처럼 어깨가 빨리 돌면 팔뚝도 바깥으로 쏠린다. 이 쏠림은 어깨에서 c₂를 잇는 선을 따라 바깥으로 향한다.</p>
+<p>그 결과 팔꿈치가 펴지려 한다. 팔꿈치 각을 지키려면 팔꿈치 모터가 반대로 버텨야 하고, 그 토크는 θ̇₁²에 비례한다. 쭉 편 팔(θ₂ = 0°)이면 쏠림이 팔꿈치 축을 똑바로 지나서 토크가 생기지 않는다.</p>
+<h3>코리올리 힘: 돌면서 반지름을 바꾸면</h3>
+<p>(나)의 판이 θ̇로 돌고, 구슬이 레일을 따라 바깥으로 나간다. 판 위의 점은 바깥일수록 옆으로 빨리 간다(빠르기 rθ̇). 구슬이 판을 따라가려면 레일이 구슬을 옆으로 밀어 줘야 하고, 판을 돌리는 모터가 그 몫을 낸다.</p>
+<p>이 몫은 <strong>각운동량</strong>(angular momentum)으로 세면 간단하다. 구슬의 각운동량은 L = m r² θ̇다. θ̇를 그대로 두고 r만 바꾸면 L이 변하고, L이 변하는 빠르기만큼 토크가 든다.</p>
+<div class="math" data-tex="\tau = \frac{dL}{dt} = \frac{d}{dt}\left(m r^2 \dot\theta\right) = 2\, m\, r\, \dot r\, \dot\theta"></div>
+<p>마지막 등호는 θ̇가 일정하다고 놓은 것이다. 이 토크는 θ̇와 ṙ의 곱에 비례하는데, 두 관절 속도의 곱에 비례하는 코리올리 힘이 바로 이런 것이다. 12.10절의 강의 예제(돌면서 늘어나는 팔)가 정확히 이 모양이다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 피겨 선수가 두 팔을 펴고 돌다가 오므리면 더 빨리 돈다. 위 식으로 설명해 보라.</p>
+</blockquote>
+<p>얼음 위에서는 몸을 돌리는 토크가 거의 없어서 L = m r² θ̇가 그대로 유지된다. 팔을 오므려 r이 줄면 θ̇가 커져야 한다.</p>
+<p>종이 팔도 같다. 어깨가 도는 중에 팔꿈치를 접으면 어깨가 저절로 빨라지려 한다. 어깨 빠르기를 그대로 지키려면 어깨 모터가 브레이크를 걸어야 한다.</p>
+<h3>둘 다 M이 바뀌어서 생긴다</h3>
+<p>두 힘 모두 "자세가 바뀌면 관성이 바뀐다"에서 나온다. M이 일정하면 원심력도 코리올리 힘도 없다(12.1절). 종이 팔에서 팔꿈치를 접어 M₁₁이 줄어드는 것이 피겨 선수가 팔을 오므리는 것과 같다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 원심력과 코리올리 힘은 함께 도는 쪽에 서서 볼 때 느끼는 힘이다. 받침에 서서 보면 "원을 그리게 하려면 안쪽으로 당겨야 한다"는 뜻일 뿐이다. 운동 방정식에서는 둘 다 "지금 속도 때문에 모터가 더 내거나 덜 내야 하는 토크"로 나타난다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=3121">52:01 C는 원심력, B는 코리올리</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3338">55:38 M이 일정하면 V도 없다</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=4288">1:11:28 어느 관절에 원심력이 걸리나</a></p>
+<h2>12.7 크리스토펠 기호로 V 계산하기</h2>
+<p>이제 V를 M의 편미분으로 정리한다. 처음 보면 무서운 식이지만, 한 줄씩 풀면 같은 무늬 하나가 되풀이될 뿐이다.</p>
+<h3>한 칸씩 풀어 쓰기</h3>
+<p>V의 i번째 칸을 풀어 쓴다. m<sub>ij</sub>는 M의 i행 j열 칸이다.</p>
+<div class="math" data-tex="V_i = \sum_{j} \dot m_{ij}\,\dot q_j \;-\; \frac{1}{2} \sum_{j}\sum_{k} \frac{\partial m_{jk}}{\partial q_i}\,\dot q_j \dot q_k"></div>
+<p>m<sub>ij</sub>는 시간에 직접 달리지 않고 q를 거쳐 달린다. 그래서 시간 미분은 연쇄 법칙으로 쓴다.</p>
+<blockquote>
+<p><strong>수학 더하기: 연쇄 법칙.</strong> f가 q₁, q₂의 함수이고 q₁, q₂가 시간에 따라 변하면 df/dt = (∂f/∂q₁) q̇₁ + (∂f/∂q₂) q̇₂다. 예를 들어 M₁₁ = 2487 + 1200 cos θ₂이면 Ṁ₁₁ = −1200 sin θ₂ · θ̇₂다.</p>
+<p>앞으로 ∂m<sub>ij</sub>/∂q<sub>k</sub>를 짧게 m<sub>ij,k</sub>로 쓴다. 강의는 쉼표 없이 m<sub>ijk</sub>로 쓴다.</p>
+</blockquote>
+<p>ṁ<sub>ij</sub> = Σ<sub>k</sub> m<sub>ij,k</sub> q̇<sub>k</sub>를 넣으면 두 합이 같은 모양 q̇<sub>j</sub>q̇<sub>k</sub>로 묶인다.</p>
+<div class="math" data-tex="V_i = \sum_{j}\sum_{k} \Big( m_{ij,k} - \tfrac{1}{2}\, m_{jk,i} \Big)\, \dot q_j \dot q_k"></div>
+<h3>크리스토펠 기호</h3>
+<p>q̇<sub>j</sub>q̇<sub>k</sub>와 q̇<sub>k</sub>q̇<sub>j</sub>는 같은 값이다. 그래서 m<sub>ij,k</sub>를 m<sub>ij,k</sub>와 m<sub>ik,j</sub>의 평균으로 바꿔 써도 합은 그대로다. 그렇게 고르게 나눈 계수를 <strong>크리스토펠 기호</strong>(Christoffel symbols)라 한다.</p>
+<div class="math" data-tex="b_{ijk} = \frac{1}{2}\Big( m_{ij,k} + m_{ik,j} - m_{jk,i} \Big),\qquad V_i = \sum_{j}\sum_{k} b_{ijk}\, \dot q_j \dot q_k"></div>
+<p>앞의 두 항은 ij와 ik 칸을 남은 아래첨자로 미분하고, 셋째 항은 jk 칸을 i로 미분해 뺀다. j와 k를 바꿔도 값이 같다(b<sub>ijk</sub> = b<sub>ikj</sub>). 19세기 수학자 크리스토펠의 이름이 붙었다.</p>
+<h3>제곱 항과 곱 항으로 나누기</h3>
+<p>j = k인 항은 속도의 제곱 q̇<sub>j</sub>²에 붙고, 이것이 원심력이다. j ≠ k인 항은 (j, k)와 (k, j)로 두 번 나와 합치면 2b<sub>ijk</sub> q̇<sub>j</sub>q̇<sub>k</sub>(j &lt; k)이고, 이것이 코리올리 힘이다.</p>
+<div class="math" data-tex="V = C(q)\,[\dot q^2] + B(q)\,[\dot q\dot q]"></div>
+<p>관절 2개면 이렇게 된다.</p>
+<div class="math" data-tex="V = \underbrace{\begin{bmatrix} b_{111} &amp; b_{122} \\ b_{211} &amp; b_{222} \end{bmatrix}}_{C}
+\begin{bmatrix} \dot q_1^2 \\ \dot q_2^2 \end{bmatrix}
++ \underbrace{\begin{bmatrix} 2 b_{112} \\ 2 b_{212} \end{bmatrix}}_{B} \dot q_1 \dot q_2"></div>
+<ul>
+<li><strong>C</strong>: 원심력 행렬. [q̇²] = (q̇₁², …, q̇<sub>n</sub>²)에 곱한다. 크기는 n × n이다.</li>
+<li><strong>B</strong>: 코리올리 행렬. [q̇q̇] = (q̇₁q̇₂, q̇₁q̇₃, …, q̇<sub>n−1</sub>q̇<sub>n</sub>)에 곱한다. 서로 다른 두 속도의 곱은 n(n − 1)/2개라서 크기는 n × n(n − 1)/2다.</li>
+</ul>
+<p>관절이 6개면 C는 6 × 6, B는 6 × 15다. B는 옆으로 긴 행렬이다.</p>
+<h3>계산 전에 0부터 지운다</h3>
+<p>손으로 계산할 때는 0이 되는 칸이 많아서 생각보다 짧다.</p>
+<ul>
+<li>M이 일정하면 모든 b가 0이다.</li>
+<li>b<sub>iii</sub> = ½ m<sub>ii,i</sub> = 0이다. M<sub>ii</sub>는 q<sub>i</sub>에 달리지 않기 때문이다(12.5절).</li>
+<li>같은 까닭으로 b<sub>iij</sub> = ½ m<sub>ii,j</sub>도 j ≤ i이면 0이다.</li>
+</ul>
+<p>b<sub>iii</sub> = 0은 몸으로도 알 수 있다. 관절 i 하나만 돌면 쏠림은 관절 i의 축에서 곧장 바깥으로 향한다. 축을 지나는 힘은 그 축을 돌리지 못하니, 그 관절에는 원심력 토크가 생기지 않는다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=2650">44:10 V를 풀어 쓴다</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=2932">48:52 되풀이되는 무늬</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3059">50:59 크리스토펠 기호</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3184">53:04 C와 B의 크기</a></p>
+<h2>12.8 종이 팔의 원심력·코리올리 힘</h2>
+<h3>0이 아닌 편미분은 두 개뿐</h3>
+<p>종이 팔의 M에서 자세에 달린 칸은 M₁₁과 M₁₂이고, 둘 다 θ₂만의 함수다. 그래서 0이 아닌 편미분은 둘뿐이다. 식을 줄이려고 h = −m₂l₁l<sub>c2</sub> sin θ₂로 쓴다.</p>
+<div class="math" data-tex="\begin{aligned}
+m_{11,2} &amp;= -2 m_2 l_1 l_{c2} \sin\theta_2 = 2h \\
+m_{12,2} &amp;= -m_2 l_1 l_{c2}\sin\theta_2 = h
+\end{aligned}"></div>
+<h3>b를 하나씩</h3>
+<p>0인 편미분을 지우면서 여섯 개를 구한다(b₁₂₁ = b₁₁₂, b₂₂₁ = b₂₁₂).</p>
+<div class="math" data-tex="\begin{aligned}
+b_{111} &amp;= \tfrac12 m_{11,1} = 0 \\
+b_{122} &amp;= m_{12,2} - \tfrac12 m_{22,1} = h \\
+b_{211} &amp;= m_{21,1} - \tfrac12 m_{11,2} = -h \\
+b_{222} &amp;= \tfrac12 m_{22,2} = 0 \\
+b_{112} &amp;= \tfrac12 m_{11,2} = h \\
+b_{212} &amp;= \tfrac12\big(m_{21,2} + m_{22,1} - m_{12,2}\big) = 0
+\end{aligned}"></div>
+<div class="math" data-tex="C = \begin{bmatrix} 0 &amp; h \\ -h &amp; 0 \end{bmatrix},\qquad B = \begin{bmatrix} 2h \\ 0 \end{bmatrix}"></div>
+<div class="math" data-tex="V = \begin{bmatrix} h\,\dot\theta_2^2 + 2h\,\dot\theta_1\dot\theta_2 \\ -h\,\dot\theta_1^2 \end{bmatrix}
+= \begin{bmatrix} -600 \sin\theta_2\,(\dot\theta_2^2 + 2\dot\theta_1\dot\theta_2) \\ 600 \sin\theta_2\, \dot\theta_1^2 \end{bmatrix}"></div>
+<p>단위는 g·cm²/s²다. 10,000 g·cm²/s²가 1 mN·m(1000분의 1 N·m)다.</p>
+<h3>읽어 보기</h3>
+<ul>
+<li><strong>팔꿈치 V₂</strong>: 어깨 속도의 제곱 θ̇₁²만 있는 12.6절 (가)의 원심력이다. θ₂가 0°와 180° 사이면 V₂ &gt; 0이다. 팔꿈치가 펴지려 하니, 모터가 접는 쪽으로 더 밀어야 각이 지켜진다.</li>
+<li><strong>어깨 V₁의 θ̇₂² 항</strong>: 팔꿈치가 돌면 팔뚝이 팔꿈치 둘레로 쏠린다. 그 쏠림이 팔꿈치 관절을 통해 링크 1을 당겨 어깨를 돌린다. 원심력이다.</li>
+<li><strong>어깨 V₁의 θ̇₁θ̇₂ 항</strong>: 코리올리 힘이다. 어깨가 돌 때 팔꿈치를 접으면(θ̇₂ &gt; 0) M₁₁이 준다. 피겨 선수처럼 어깨가 빨라지려 하니 어깨 모터가 브레이크(V₁ &lt; 0)를 건다.</li>
+</ul>
+<figure data-fig="fig12_6"><div class="fig-title">속도만 있어도 모터가 더 내야 할 토크가 생긴다</div><div class="fig-body"></div><div class="fig-note">가속도가 0이라 할 때, 지금 빠르기를 그대로 지키려고 모터가 더 내야 하는 토크다. 둥근 화살표는 그 방향(시계 반대가 +)이고 길이는 크기를 나타낸다. 회색 점선 화살표는 관절이 도는 방향이다.</div><figcaption>그림 12-6 · 직접 돌려 보기: 종이 팔의 V (책상 위, 중력 없음)</figcaption></figure>
+<p>해 볼 것 네 가지:</p>
+<ol>
+<li>θ̇₂ = 0으로 두고 θ̇₁만 올린다. V₁ = 0이고 V₂만 생긴다. θ̇₁을 2배로 하면 V₂는 4배다.</li>
+<li>θ̇₁ = 0으로 두고 θ̇₂만 올린다. 이번에는 V₂ = 0이고 어깨에만 원심력 몫이 생긴다.</li>
+<li>θ̇₁과 θ̇₂를 같은 쪽으로 같은 빠르기로 돌린다. 어깨의 코리올리 몫이 원심력 몫의 두 배다. θ̇₂의 방향을 바꾸면 코리올리 몫의 부호가 바뀐다.</li>
+<li>θ₂ = 0°(쭉 편 팔)나 180°로 가면 모두 0이다. sin θ₂ = 0이기 때문이다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 쭉 편 팔에서는 어깨를 아무리 빨리 돌려도 V₂ = 0이다. 그래도 팔꿈치 관절에는 힘이 걸리지 않나?</p>
+</blockquote>
+<p>걸린다. 팔뚝을 원 위에 붙잡아 두려면 팔꿈치가 팔뚝을 어깨 쪽으로 당겨야 한다. 그런데 그 힘은 팔 방향이라 팔꿈치 축을 똑바로 지나서, 축받이가 버틸 뿐 팔꿈치 모터가 낼 토크는 없다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 취미용 서보는 빨라야 1초에 10 rad(약 600°)쯤 돈다. 그 빠르기면 종이 팔의 V도 10 mN·m을 넘어, 12.9절의 중력(최대 30 mN·m)과 견줄 만하다. 천천히 움직이면 V는 속도의 제곱으로 빠르게 작아진다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=4130">1:08:50 b를 계산하자</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=4163">1:09:23 0이 되는 칸이 많다</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=4225">1:10:25 m₁₁₂만 남는다</a></p>
+<h2>12.9 중력 벡터 G</h2>
+<h3>책상 위에서는 G = 0</h3>
+<p>종이 팔이 책상 위에 누워 있으면 관절 축은 모두 위를 본다. 무게는 아래로 당기니 관절 축과 나란하다. 축과 나란한 힘은 그 축을 돌리지 못하므로 G = 0이다.</p>
+<p>중력을 보려면 종이 팔을 <strong>벽에 세운다</strong>. 받침을 벽에 붙여 팔이 세로 면에서 움직이게 한다. x는 수평, y는 위쪽이고, 중력 가속도 g = 980 cm/s²(9.8 m/s²)는 −y 쪽을 향한다.</p>
+<h3>위치 에너지를 미분한다</h3>
+<p>링크 i의 <strong>위치 에너지</strong>(potential energy)는 질량 중심 높이 y<sub>ci</sub>로 U<sub>i</sub> = m<sub>i</sub> g y<sub>ci</sub>다. 다 더한 U를 관절 각도로 편미분하면 G다.</p>
+<div class="math" data-tex="U = \sum_i m_i\, g\, y_{c_i},\qquad G_j = \frac{\partial U}{\partial q_j}"></div>
+<p>종이 팔은 y<sub>c1</sub> = l<sub>c1</sub>s₁, y<sub>c2</sub> = l₁s₁ + l<sub>c2</sub>s₁₂다. θ₁, θ₂로 미분한다.</p>
+<div class="math" data-tex="G = \begin{bmatrix} (m_1 l_{c1} + m_2 l_1)\, g\, c_1 + m_2 l_{c2}\, g\, c_{12} \\ m_2 l_{c2}\, g\, c_{12} \end{bmatrix}"></div>
+<p>숫자를 넣으면 (m₁l<sub>c1</sub> + m₂l₁)g = 250 × 980 = 245,000, m₂l<sub>c2</sub>g = 60 × 980 = 58,800 g·cm²/s²다. 10,000으로 나누어 mN·m로 쓴다.</p>
+<div class="math" data-tex="G = \begin{bmatrix} 24.5\,c_1 + 5.9\,c_{12} \\ 5.9\,c_{12} \end{bmatrix}\ \text{mN}\cdot\text{m}"></div>
+<h3>같은 답을 Jᵀ F로</h3>
+<p>교수는 더 쉬운 그림을 권한다. 질량 중심마다 무게 m<sub>i</sub>g가 매달려 아래로 당긴다고 보는 것이다. 손끝에 건 힘 F가 τ = Jᵀ F로 관절 토크가 되었듯이(8.8절), 질량 중심에 건 힘에는 질량 중심 자코비안을 쓴다.</p>
+<div class="math" data-tex="G = -\Big( J_{v_1}^{T}\, m_1 \mathbf{g} + J_{v_2}^{T}\, m_2 \mathbf{g} + \cdots + J_{v_n}^{T}\, m_n \mathbf{g} \Big),\qquad \mathbf{g} = \begin{bmatrix} 0 \\ -g \end{bmatrix}"></div>
+<p>앞의 빼기는 "무게가 거는 토크를 모터가 거꾸로 받친다"는 뜻이다. J<sub>v1</sub>, J<sub>v2</sub>는 12.4절에서 이미 구했으니 곱하기만 하면 된다. 위치 에너지를 미분하는 것과 같은 일인데, ∂y<sub>ci</sub>/∂q<sub>j</sub>가 바로 J<sub>vi</sub>의 y 줄 j번째 칸이기 때문이다.</p>
+<figure data-fig="fig12_7"><div class="fig-title">질량 중심까지의 수평 거리가 중력 토크를 정한다</div><div class="fig-body"></div><div class="fig-note">팔을 멈춰 두려고 모터가 내야 하는 토크다(시계 반대가 +). 점선은 무게가 걸리는 세로선이고, 관절에서 그 선까지의 수평 거리가 지렛대 길이다.</div><figcaption>그림 12-7 · 직접 움직여 보기: 벽에 세운 종이 팔의 G</figcaption></figure>
+<p>해 볼 것:</p>
+<ol>
+<li>θ₁ = 0°, θ₂ = 0°: 팔을 수평으로 편다. G₁ = 24.5 + 5.9 ≈ 30.4 mN·m로 가장 크다.</li>
+<li>θ₁ = 90°, θ₂ = 0°: 팔을 똑바로 세운다. 무게가 모두 관절 위를 지나 G = 0이다.</li>
+<li>θ₁ = 90°에서 θ₂만 움직인다. 팔꿈치가 꺾이면 G₂가 생기고, 같은 무게가 어깨에도 걸린다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 해 볼 것 2에서 G = 0이면 모터를 꺼도 되나?</p>
+</blockquote>
+<p>이론으로는 그대로 서 있다. 하지만 조금만 기울어도 무게가 한쪽으로 쏠려 쓰러지는, 거꾸로 세운 연필 같은 불안정한 자세다. 아래로 늘어뜨린 자세(θ₁ = −90°)도 G = 0이지만, 이쪽은 밀어도 돌아오는 안정한 자세다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 서보 설명서는 토크를 kg·cm로 적는다. 1 kg·cm(1 kg 추를 1 cm 팔로 드는 토크)는 약 98 mN·m다.</p>
+<p>벽에 세운 종이 팔은 어깨에 최대 30 mN·m, 약 0.3 kg·cm가 든다. 손에 50 g을 들고 수평으로 펴면 119 mN·m, 약 1.2 kg·cm로 커진다(연습문제 5).</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=3369">56:09 중력은 높이에서</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3432">57:12 기울기를 구하면 자코비안</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3463">57:43 무게를 τ = Jᵀ F로</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=4349">1:12:29 중력 방향 조심</a></p>
+<h2>12.10 다 모으기: M q̈ + V + G = τ</h2>
+<h3>벽에 세운 종이 팔의 운동 방정식</h3>
+<p>12.4, 12.8, 12.9절을 모으면 운동 방정식이 완성된다. 단위는 모두 g·cm²/s²이고, 10,000으로 나누면 mN·m다.</p>
+<div class="math" data-tex="\begin{aligned}
+\tau_1 &amp;= (2487 + 1200 c_2)\,\ddot\theta_1 + (320 + 600 c_2)\,\ddot\theta_2 \\
+&amp;\quad - 600\, s_2\,(2\dot\theta_1\dot\theta_2 + \dot\theta_2^2) + 245{,}000\, c_1 + 58{,}800\, c_{12}
+\end{aligned}"></div>
+<div class="math" data-tex="\tau_2 = (320 + 600 c_2)\,\ddot\theta_1 + 320\,\ddot\theta_2 + 600\, s_2\,\dot\theta_1^2 + 58{,}800\, c_{12}"></div>
+<p>줄마다 앞의 두 항이 M q̈, 가운데가 V, 끝이 G다. 책상 위에 눕히면 G 항만 빠진다.</p>
+<h3>이 식을 어디에 쓰나</h3>
+<p>같은 식을 두 방향으로 쓴다.</p>
+<ol>
+<li><strong>시뮬레이션</strong>: τ를 주면 q̈ = M⁻¹(τ − V − G)로 가속도를 구한다. 이것을 조금씩 적분하면 팔이 어떻게 움직일지 컴퓨터로 미리 볼 수 있다.</li>
+<li><strong>제어</strong>: 원하는 가속도 q̈를 정하면 τ를 바로 계산한다. 13강부터 배우는 제어가 이 식을 쓴다.</li>
+</ol>
+<h3>한 순간 계산해 보기</h3>
+<p>벽에 세운 종이 팔이 θ = (0°, 90°)에 있다. 어깨는 θ̇₁ = 3 rad/s로 돌면서 θ̈₁ = 10 rad/s²로 빨라지고, 팔꿈치는 각을 지킨다(θ̇₂ = θ̈₂ = 0). 이때 모터 토크를 항별로 나누면 이렇다(단위 mN·m).</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>M q̈</th>
+<th>V</th>
+<th>G</th>
+<th>τ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>어깨</td>
+<td>2.49</td>
+<td>0</td>
+<td>24.50</td>
+<td>26.99</td>
+</tr>
+<tr>
+<td>팔꿈치</td>
+<td>0.32</td>
+<td>0.54</td>
+<td>0</td>
+<td>0.86</td>
+</tr>
+</tbody>
+</table>
+<p>가볍고 느린 종이 팔은 중력이 대부분이다. 팔꿈치는 각을 지키기만 하는데도 얽힘 몫(M₂₁θ̈₁ = 0.32)과 원심력 몫(0.54)을 내야 한다.</p>
+<h3>강의 예제: 돌면서 늘어나는 팔</h3>
+<p>강의는 회전 관절 하나와 직동 관절 하나로 된 팔(RP 팔)로 같은 과정을 끝까지 해 본다. 세로 면에서 움직이고, 중력은 −y 쪽이다.</p>
+<figure data-fig="fig12_8"><div class="fig-title">돌면서 늘어나는 팔: 직동 관절은 원심력, 회전 관절은 코리올리 힘</div><div class="fig-body"></div><div class="fig-note">링크 1의 질량 중심은 축에서 l₁, 링크 2의 질량 중심은 d₂에 있다. d₂가 직동 관절 변수다. 링크 2가 링크 1 속으로 미끄러져 드나든다.</div><figcaption>그림 12-8 · 강의 예제: 회전 + 직동 팔</figcaption></figure>
+<ul>
+<li>질량 중심: p<sub>c1</sub> = l₁(c₁, s₁), p<sub>c2</sub> = d₂(c₁, s₁)</li>
+<li>자코비안: J<sub>v1</sub>의 첫 열은 (−l₁s₁, l₁c₁)이다. J<sub>v2</sub>의 두 열은 (−d₂s₁, d₂c₁)과 (c₁, s₁)이다.</li>
+<li>각속도: 두 링크 모두 θ̇₁로만 돈다. 직동 관절은 돌림을 보태지 않는다.</li>
+</ul>
+<div class="math" data-tex="M = \begin{bmatrix} m_1 l_1^2 + I_{zz1} + m_2 d_2^2 + I_{zz2} &amp; 0 \\ 0 &amp; m_2 \end{bmatrix}"></div>
+<p>J<sub>v2</sub>의 두 열이 서로 수직이라 비대각 칸이 0이다. 돌리는 방향과 늘이는 방향이 수직이기 때문이다. M₂₂ = m₂는 늘이는 쪽에서 본 질량 그대로라 늘 같다.</p>
+<p>자세에 달린 칸은 M₁₁ 하나이고 d₂에만 달렸다. m₁₁,₂ = 2m₂d₂만 남아서 b₁₁₂ = m₂d₂, b₂₁₁ = −m₂d₂다.</p>
+<div class="math" data-tex="V = \begin{bmatrix} 2 m_2 d_2\, \dot\theta_1 \dot d_2 \\ -m_2 d_2\, \dot\theta_1^2 \end{bmatrix},\qquad
+G = \begin{bmatrix} (m_1 l_1 + m_2 d_2)\, g\, c_1 \\ m_2\, g\, s_1 \end{bmatrix}"></div>
+<ul>
+<li>직동 관절은 −m₂d₂θ̇₁²의 <strong>원심력</strong>을 느낀다. 돌면 링크 2가 바깥으로 빠져나가려 하니, 모터가 안쪽으로 당겨야 한다.</li>
+<li>회전 관절은 2m₂d₂θ̇₁ḋ₂의 <strong>코리올리 힘</strong>을 느낀다. 12.6절 (나)의 구슬과 똑같은 식이다.</li>
+</ul>
+<p>영상에서 보기: <a href="https://youtu.be/MCmkUJGYvOY?t=3556">59:16 강의 예제: 회전 + 직동 팔</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3747">1:02:27 질량 중심 위치부터</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=3972">1:06:12 비대각이 0인 M</a> · <a href="https://youtu.be/MCmkUJGYvOY?t=4382">1:13:02 완성된 모델</a></p>
+<h2>12.11 연습문제</h2>
+<p>종이 팔의 숫자(12.4절 표)를 쓴다. 답은 문제 8개 아래에 있다.</p>
+<ol>
+<li>링크 1(20 g, 10 cm 막대)이 한쪽 끝을 축으로 3 rad/s로 돈다. ½ m v<sub>c</sub>²와 ½ I<sub>c</sub>ω²를 각각 구하라. 합이 ½(m l²/3)ω²와 같은지 확인하라.</li>
+<li>종이 팔이 θ₂ = 90°에 있다.<ol>
+<li>M을 구하라.</li>
+<li>θ̇ = (1, −1) rad/s일 때 운동 에너지 K를 구하라.</li>
+<li>det M을 구해 양의 정부호인지 확인하라.</li>
+</ol>
+</li>
+<li>손끝에 50 g짜리 작은 물건(크기 없는 점)을 단다.<ol>
+<li>물건이 M에 보태는 몫을 손끝 자코비안 J로 적어라.</li>
+<li>M₁₁을 θ₂ = 0°와 150°에서 구하고, 150°는 0°의 몇 %인지 구하라.</li>
+<li>1장 그림 1-5의 값(편 팔 19,640, 접은 팔 13%)과 무엇이 다른가?</li>
+</ol>
+</li>
+<li>종이 팔의 크리스토펠 기호 b<sub>ijk</sub> 여덟 개 가운데 0이 아닌 것을 모두 적어라. θ₂ = 90°에서 θ̇ = (4, 0)일 때와 (4, 4)일 때 V를 mN·m로 구하라.</li>
+<li>벽에 세운 종이 팔의 G를 mN·m로 구하라.<ol>
+<li>θ = (0°, 0°)</li>
+<li>θ = (90°, 0°)</li>
+<li>θ = (0°, 90°)</li>
+<li>θ = (0°, 0°)에서 손끝에 50 g을 들 때</li>
+</ol>
+</li>
+<li>강의 예제의 RP 팔에서 m₂ = 2 kg, d₂ = 0.5 m다. θ̇₁ = 1 rad/s, ḋ₂ = 0.2 m/s일 때 V를 구하라. 각 관절이 무엇을 느끼는지 말하라.</li>
+<li>벽에 세운 종이 팔이 θ = (30°, 60°)에 멈춰 있다(θ̇ = 0). 여기서 팔꿈치만 θ̈ = (0, 20) rad/s²로 가속하려 한다. τ를 mN·m로 구하라. 어깨 토크 가운데 얽힘 몫은 얼마인가?</li>
+<li>관절이 6개인 팔이 있다.<ol>
+<li>C와 B의 크기는?</li>
+<li>b₃₃₃은?</li>
+<li>M₆₆은 어느 관절 변수에 달렸나?</li>
+<li>M₁₁은 어느 관절 변수에 달렸나?</li>
+</ol>
+</li>
+</ol>
+<h3>답</h3>
+<p><strong>답 1.</strong></p>
+<ul>
+<li>미끄러지기: 질량 중심은 5 cm에 있어서 v<sub>c</sub> = 5 × 3 = 15 cm/s다. ½ × 20 × 15² = 2250이다.</li>
+<li>제자리 돌기: I<sub>c</sub> = 20 × 100/12 = 166.7이라 ½ × 166.7 × 3² = 750이다.</li>
+<li>합은 3000 g·cm²/s²다. m l²/3 = 666.7이고 ½ × 666.7 × 9 = 3000으로 같다.</li>
+</ul>
+<p><strong>답 2.</strong></p>
+<ol>
+<li>cos 90° = 0을 넣는다. M = [[2486.7, 320], [320, 320]] g·cm²다.</li>
+<li>K = ½(M₁₁q̇₁² + 2M₁₂q̇₁q̇₂ + M₂₂q̇₂²) = ½(2486.7 − 640 + 320) = <strong>1083.3 g·cm²/s²</strong>다.</li>
+<li>det M = 2486.7 × 320 − 320² = 693,333이다. M₁₁ &gt; 0이고 det &gt; 0이라 양의 정부호다. 12.5절의 식과도 맞는다.</li>
+</ol>
+<p><strong>답 3.</strong></p>
+<ol>
+<li>크기 없는 점이라 회전 몫은 없고 m<sub>p</sub> Jᵀ J만 더해진다. 7장대로 J의 열은 어깨→손끝, 팔꿈치→손끝 화살표를 90° 돌린 것이다. 그래서 Jᵀ J = [[164 + 160c₂, 64 + 80c₂], [64 + 80c₂, 64]]이다.</li>
+<li>물건의 몫은 M₁₁에 50(164 + 160c₂)이 더해져 M₁₁ = 10,686.7 + 9200 cos θ₂다. 0°에서 19,886.7, 150°에서 2719.2다. 비율은 <b>13.7%</b>다.</li>
+<li>그림 1-5는 링크를 점으로 보아(I = 0) 19,640과 2472.6(12.6%)이었다. 차이는 어느 자세에서나 I₁ + I₂ = 246.7이다. 링크가 제자리에서 도는 몫만큼 다르다.</li>
+</ol>
+<p><strong>답 4.</strong> 0이 아닌 것은 b₁₁₂ = b₁₂₁ = h, b₁₂₂ = h, b₂₁₁ = −h다. 나머지 b₁₁₁, b₂₁₂ = b₂₂₁, b₂₂₂는 0이다. θ₂ = 90°이면 h = −600이다.</p>
+<ul>
+<li>θ̇ = (4, 0): V₁ = 0, V₂ = 600 × 16 = 9600이다. <strong>V = (0, 0.96) mN·m</strong>다.</li>
+<li>θ̇ = (4, 4): V₁ = −600(16 + 2 × 16) = −28,800, V₂ = 9600이다. <strong>V = (−2.88, 0.96) mN·m</strong>다.</li>
+</ul>
+<p><strong>답 5.</strong></p>
+<ol>
+<li>c₁ = c₁₂ = 1이다. G = (24.5 + 5.9, 5.9) = <b>(30.4, 5.9)</b>다.</li>
+<li>c₁ = cos 90° = 0, c₁₂ = cos 90° = 0이다. G = <b>(0, 0)</b>이다.</li>
+<li>c₁ = 1, c₁₂ = cos 90° = 0이다. G = <b>(24.5, 0)</b>이다.</li>
+<li>물건은 −Jᵀ m<sub>p</sub>𝐠를 더한다(J는 손끝 자코비안). 수평으로 편 팔이라 50 × 980 × 18 = 882,000이 어깨에, 50 × 980 × 8 = 392,000이 팔꿈치에 더해진다. G = <b>(118.6, 45.1)</b>이다.</li>
+</ol>
+<p><strong>답 6.</strong> V₁ = 2m₂d₂θ̇₁ḋ₂ = 2 × 2 × 0.5 × 1 × 0.2 = <strong>0.4 N·m</strong>, V₂ = −m₂d₂θ̇₁² = −2 × 0.5 × 1 = <strong>−1.0 N</strong>이다.</p>
+<ul>
+<li>회전 관절(코리올리): 무게가 바깥으로 나가며 각운동량 m₂d₂²θ̇₁이 커진다. 같은 빠르기로 돌리려면 0.4 N·m를 더 내야 한다.</li>
+<li>직동 관절(원심력): 돌면 링크 2가 바깥으로 빠져나가려 한다. 길이를 지키려면 안쪽으로 1 N을 당겨야 한다(−는 d₂를 줄이는 쪽).</li>
+</ul>
+<p><strong>답 7.</strong> θ₂ = 60°에서 M = [[3086.7, 620], [620, 320]]이다. 멈춰 있으니 V = 0이다. G는 c₁ = cos 30° = 0.866, c₁₂ = cos 90° = 0으로 (21.22, 0)이다.</p>
+<p>M q̈ = (620 × 20, 320 × 20) = (12,400, 6400) g·cm²/s²이고, 1만으로 나누면 (1.24, 0.64) mN·m다. 그래서 <strong>τ = (22.46, 0.64) mN·m</strong>다. 어깨의 얽힘 몫은 M₁₂θ̈₂ = <strong>1.24 mN·m</strong>로, 팔꿈치만 움직이려 해도 어깨가 이만큼 버텨야 한다.</p>
+<p><strong>답 8.</strong></p>
+<ol>
+<li>C는 6 × 6, B는 6 × 15다(6 × 5/2 = 15).</li>
+<li>0이다. b<sub>iii</sub> = ½ m<sub>ii,i</sub>이고 M<sub>ii</sub>는 q<sub>i</sub>에 달리지 않는다.</li>
+<li>어느 변수에도 달리지 않는다. 마지막 링크 하나가 자기 축으로 도는 관성이라 늘 같다.</li>
+<li>q₂, …, q₆에 달렸다. q₁에는 달리지 않는다.</li>
+</ol>
+<h3>파이썬으로 확인</h3>
+<p>파이썬(numpy)이 있으면 아래를 붙여 넣어 돌려 본다. 주석의 값이 그대로 나온다.</p>
+<p>질량 중심 자코비안으로 M을 만들어 닫힌 꼴과 맞춰 보고, 크리스토펠 기호는 M을 수치로 미분해 구한다. 마지막에는 토크 0으로 팔을 2초 굴려 운동 에너지가 그대로인지 본다. M이나 V가 틀렸다면 에너지가 새어 나간다.</p>
+<pre><code class="language-python">import numpy as np
+
+np.set_printoptions(precision=2, suppress=True)
+D = np.pi / 180
+m1, m2, l1, l2 = 20.0, 15.0, 10.0, 8.0          # g, cm
+lc1, lc2 = l1 / 2, l2 / 2                        # 질량 중심은 가운데
+I1, I2 = m1 * l1**2 / 12, m2 * l2**2 / 12        # 막대의 z축 관성 (g·cm²)
+g = 980.0                                        # cm/s² (9.8 m/s²)
+TO_mNm = 1e-4                                    # g·cm²/s² → mN·m
+
+def com_jacobians(q):
+    &quot;&quot;&quot;질량 중심 자코비안 J_v1, J_v2 (2 × 2)와 J_w1, J_w2 (z 줄만, 1 × 2).&quot;&quot;&quot;
+    t1, t2 = q
+    s1, c1, s12, c12 = np.sin(t1), np.cos(t1), np.sin(t1 + t2), np.cos(t1 + t2)
+    Jv1 = np.array([[-lc1 * s1, 0], [lc1 * c1, 0]])
+    Jv2 = np.array([[-l1 * s1 - lc2 * s12, -lc2 * s12], [l1 * c1 + lc2 * c12, lc2 * c12]])
+    return Jv1, Jv2, np.array([[1.0, 0]]), np.array([[1.0, 1]])
+
+def tip_jacobian(q):
+    t1, t2 = q
+    return np.array([[-l1 * np.sin(t1) - l2 * np.sin(t1 + t2), -l2 * np.sin(t1 + t2)],
+                     [l1 * np.cos(t1) + l2 * np.cos(t1 + t2), l2 * np.cos(t1 + t2)]])
+
+def mass_matrix(q, mp=0.0):
+    &quot;&quot;&quot;M = Σ (m J_vᵀ J_v + J_wᵀ I J_w). mp는 손끝에 단 점 질량(g).&quot;&quot;&quot;
+    Jv1, Jv2, Jw1, Jw2 = com_jacobians(q)
+    M = m1 * Jv1.T @ Jv1 + I1 * Jw1.T @ Jw1 + m2 * Jv2.T @ Jv2 + I2 * Jw2.T @ Jw2
+    J = tip_jacobian(q)
+    return M + mp * J.T @ J
+
+def mass_closed(t2):
+    &quot;&quot;&quot;12.4절의 닫힌 꼴.&quot;&quot;&quot;
+    c = np.cos(t2)
+    a = m1 * lc1**2 + I1 + m2 * (l1**2 + lc2**2 + 2 * l1 * lc2 * c) + I2
+    b = m2 * (lc2**2 + l1 * lc2 * c) + I2
+    return np.array([[a, b], [b, m2 * lc2**2 + I2]])
+
+def christoffel(q, eps=1e-6):
+    &quot;&quot;&quot;b[i, j, k] = ½(m_ij,k + m_ik,j − m_jk,i). 편미분은 수치로 구한다.&quot;&quot;&quot;
+    dM = np.array([(mass_matrix(q + eps * e) - mass_matrix(q - eps * e)) / (2 * eps)
+                   for e in np.eye(2)])               # dM[k, i, j] = m_ij,k
+    return 0.5 * (np.einsum('kij-&gt;ijk', dM) + np.einsum('jik-&gt;ijk', dM) - dM)
+
+def V_vec(q, qd):
+    return np.einsum('ijk,j,k-&gt;i', christoffel(q), qd, qd)
+
+def G_vec(q, mp=0.0):
+    &quot;&quot;&quot;벽에 세운 팔: G = −Σ J_viᵀ m_i g, g = (0, −980).&quot;&quot;&quot;
+    Jv1, Jv2, _, _ = com_jacobians(q)
+    gv = np.array([0, -g])
+    return -(Jv1.T @ (m1 * gv) + Jv2.T @ (m2 * gv) + tip_jacobian(q).T @ (mp * gv))
+
+def U(q):
+    t1, t2 = q
+    return m1 * g * lc1 * np.sin(t1) + m2 * g * (l1 * np.sin(t1) + lc2 * np.sin(t1 + t2))
+
+# 12.4: 자코비안으로 만든 M = 닫힌 꼴, θ1과 상관없다
+print(mass_matrix(np.array([30, 60]) * D))       # [[3086.67  620.  ] [ 620.    320.  ]]
+print(all(np.allclose(mass_matrix(np.array([t1, t2]) * D), mass_closed(t2 * D))
+          for t1 in (0, 40, -110) for t2 in (0, 60, 150)))       # True
+# 12.5: det M = 693,333 − 360,000 cos²θ2
+print([round(np.linalg.det(mass_closed(t * D))) for t in (0, 90, 180)])   # [333333, 693333, 333333]
+# 문제 2: θ2 = 90°, θ̇ = (1, −1)
+M90, w = mass_closed(90 * D), np.array([1, -1])
+print(M90, round(0.5 * w @ M90 @ w, 1))          # [[2486.67  320.  ] [ 320.    320.  ]] 1083.3
+# 문제 3: 손끝에 50 g
+a, b = (mass_matrix(np.array([20, t]) * D, 50)[0, 0] for t in (0, 150))
+print(round(a, 1), round(b, 1), round(b / a * 100, 1))           # 19886.7 2719.2 13.7
+# 12.8, 문제 4: 수치로 구한 b. θ2 = 90°이면 h = −600
+q = np.array([20, 90]) * D
+print(christoffel(q).round(3) + 0.0)             # b[0] = [[0 -600] [-600 -600]], b[1] = [[600 0] [0 0]]
+print(V_vec(q, np.array([4.0, 0])) * TO_mNm)     # [0.   0.96]
+print(V_vec(q, np.array([4.0, 4])) * TO_mNm)     # [-2.88  0.96]
+# V = Ṁq̇ − ½(q̇ᵀ ∂M/∂q_i q̇) 와도 같다 (아무 자세·속도에서)
+q, qd, eps = np.array([0.3, 1.1]), np.array([2.0, -1.5]), 1e-6
+Mdot = (mass_matrix(q + eps * qd) - mass_matrix(q - eps * qd)) / (2 * eps)
+dM = [(mass_matrix(q + eps * e) - mass_matrix(q - eps * e)) / (2 * eps) for e in np.eye(2)]
+print(np.allclose(V_vec(q, qd), Mdot @ qd - 0.5 * np.array([qd @ d @ qd for d in dM])))   # True
+# 12.9, 문제 5: 중력 (mN·m)
+for deg, mp in (((0, 0), 0), ((90, 0), 0), ((0, 90), 0), ((0, 0), 50)):
+    print(G_vec(np.array(deg) * D, mp) * TO_mNm)  # [30.38  5.88] / [0. 0.] / [24.5  0. ] / [118.58  45.08]
+q = np.array([0.4, -0.9])
+grad = [(U(q + eps * e) - U(q - eps * e)) / (2 * eps) for e in np.eye(2)]
+print(np.allclose(G_vec(q), grad))               # True  (위치 에너지의 기울기와 같다)
+# 12.10, 문제 7: τ = M q̈ + V + G (mN·m)
+def tau(q, qd, qdd):
+    return (mass_matrix(q) @ qdd + V_vec(q, qd) + G_vec(q)) * TO_mNm
+print(tau(np.array([0, 90]) * D, np.array([3.0, 0]), np.array([10.0, 0])))   # [26.99  0.86]
+print(tau(np.array([30, 60]) * D, np.zeros(2), np.array([0, 20.0])))         # [22.46  0.64]
+# 에너지 확인: 책상 위(중력 없음), 토크 0으로 2초 굴리기 (룽게-쿠타 4단)
+def f(x):
+    q, qd = x[:2], x[2:]
+    return np.r_[qd, np.linalg.solve(mass_matrix(q), -V_vec(q, qd))]
+x, h = np.array([0, 0.5, 3.0, -2.0]), 1e-3
+K = lambda x: 0.5 * x[2:] @ mass_matrix(x[:2]) @ x[2:]
+K0 = K(x)
+for _ in range(2000):
+    k1 = f(x); k2 = f(x + h / 2 * k1); k3 = f(x + h / 2 * k2); k4 = f(x + h * k3)
+    x = x + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+print(round(K0, 3), round(K(x), 3))              # 11489.649 11489.649  에너지가 그대로다
+</code></pre>
+<h3>스탠퍼드 숙제</h3>
+<p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 5에서 2번 (a)~(i)가 이 장 전체를 따라가는 문제다. 공간에서 움직이는 RP 팔의 질량 중심 자코비안, 질량 행렬, C와 B, 중력 벡터를 차례로 구한다.</p>
+<p>1번(관성 텐서 옮기기)과 2번 (d)의 막대 관성은 11장의 내용이다. 풀이는 같은 페이지의 Solution 5에 있다.</p>
+<p>다 풀었으면 <a href="https://youtu.be/MCmkUJGYvOY">12강 영상</a>을 한 번 본다.</p>
+<div class="chapter-nav"><a href="ch11.html">← 11장. 힘이 움직임을 만든다: 동역학 첫걸음</a><a href="./">처음으로 →</a></div>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+<script src="assets/figs/ch12.js"></script>
+<script>FigKit.renderAll();</script>
+</body>
+</html>

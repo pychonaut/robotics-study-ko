@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8장. 속도는 J로, 힘은 Jᵀ로: 특이점, 손끝 속도 제어, 정적 힘</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch7.html">← 이전 장</a><a href="ch9.html">다음 장 →</a></header>
+<main>
+<h1>8장. 속도는 J로, 힘은 Jᵀ로: 특이점, 손끝 속도 제어, 정적 힘</h1>
+<!-- card: 강의 8강 · 손목 특이점, 손끝 점 옮기기, resolved-rate 제어, 가상일과 τ = JᵀF · 연습문제와 파이썬 확인 코드 -->
+
+<p class="lead">자코비안은 관절 속도를 손끝 속도로 옮기고, 손끝의 힘을 관절 토크로 거꾸로 옮긴다. 이 장은 실제 팔에서 특이점을 확인하고, 손끝 속도를 명령해 팔을 움직이는 법과 손끝 힘을 버티는 토크를 구하는 법을 배운다. 강의 8강(75분)에 해당한다.</p>
+
+<h2>8.1 실물 스탠퍼드 팔: 손목 특이점</h2>
+<p>강의는 자동차가 스스로 평행 주차하는 영상(INRIA, 1999)과 중간고사 안내로 시작한다. 중간고사 범위는 이 강의까지, 곧 자코비안까지다. 이어서 교수가 1970년대 초에 만든 실물 스탠퍼드 Scheinman 팔을 보여 준다.</p>
+<p>5~7장에서 그림과 식으로만 본 팔이다. 교수는 관절을 하나씩 짚는다.</p>
+<ul>
+<li><strong>관절 1, 2</strong>: 관절 1은 몸통 전체를 세로축으로 돌리고, 관절 2는 붐을 위아래로 기울인다. 제어기에 연결하지 않아서 브레이크로 붐을 수평으로 잡아 두었다.</li>
+<li><strong>관절 3</strong>: 직동 관절이다. 방향을 정한 뒤 붐을 곧게 뻗어 빨리 닿을 수 있다. 대신 양쪽 끝에 멈춤 장치가 있어 늘이고 줄이는 길이에 한계가 있다.</li>
+<li><strong>관절 4, 5, 6</strong>: 손목이다. 세 축이 손목점 W에서 만난다(5장).</li>
+</ul>
+<h3>θ₅ = 0이면 축 4와 축 6이 한 줄이 된다</h3>
+<p>교수가 관절 5를 0으로 돌리자 학생들이 바로 "특이점"이라고 답한다. θ₅ = 0이면 관절 4의 축 z₄와 관절 6의 축 z₆이 한 줄에 놓인다(7.10절). 두 관절이 같은 축으로 손을 돌리니, 손목 관절 셋 가운데 하나를 잃은 셈이다.</p>
+<p>잃은 것은 어느 축으로 도는 능력일까? 손목이 손에 줄 수 있는 각속도는 θ̇₄ z₄ + θ̇₅ z₅ + θ̇₆ z₆다(7.3절). z₆ = z₄이면 이 합은 z₄와 z₅가 만드는 평면을 벗어나지 못한다.</p>
+<p>그래서 그 평면에 수직인 축 <strong>n = z₅ × z₄</strong>로는 손을 돌릴 수 없다. 교수가 연필을 손에 대고 이리저리 돌려 보다가 "이 축으로는 잠겼다"고 보여 주는 축이 이것이다.</p>
+<figure data-fig="fig8_1"><div class="fig-title">손목을 펴면 축 4와 축 6이 겹쳐, 한 축으로는 돌 수 없다</div><div class="fig-body"></div><div class="fig-note">손목을 옆에서 본 그림이다. z₅는 화면 밖을 보고(⊙), z₄와 z₆은 화면 안에 있다. 둘 사이의 각이 θ₅다. 세로 점선이 손이 돌기 어려운 축 n이다.</div><figcaption>그림 8-1 · 직접 펴 보기: 스탠퍼드 팔의 손목</figcaption></figure>
+<h3>가까이만 가도 손목이 바빠진다</h3>
+<p>θ₅가 0이 아니어도 작으면 문제다. z₆이 n 쪽으로 기운 몫은 sin θ₅뿐이다. 그 작은 몫으로 n 방향 회전을 만들려면 관절 6이 1/sin θ₅의 빠르기로 돌아야 한다.</p>
+<p>그러면 z₆에 딸린 z₄ 방향 몫도 함께 생긴다. 관절 4가 반대 방향으로 cos θ₅/sin θ₅의 빠르기로 돌아 그 몫을 지운다. 손을 축 n으로 1 rad/s 돌릴 때 두 관절의 빠르기는 이렇다.</p>
+<table>
+<thead>
+<tr>
+<th>θ₅</th>
+<th>30°</th>
+<th>10°</th>
+<th>3°</th>
+<th>1°</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>관절 6 (rad/s)</td>
+<td>2.00</td>
+<td>5.76</td>
+<td>19.1</td>
+<td>57.3</td>
+</tr>
+<tr>
+<td>관절 4 (rad/s, 반대 방향)</td>
+<td>1.73</td>
+<td>5.67</td>
+<td>19.1</td>
+<td>57.3</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> θ₅ = 0일 때 관절 4를 +10°, 관절 6을 −10° 돌리면 손은 어떻게 되나?</p>
+</blockquote>
+<p>손은 그대로다. 두 관절이 같은 축으로 반대만큼 돌아 서로 지운다. 관절은 움직이는데 손은 멈춰 있는 이 움직임을 교수는 "안에서만 도는 자유"라고 부른다.</p>
+<p>θ₄와 θ₆이 얼마이든 θ₅ = 0이기만 하면 이 특이점은 그대로 남는다. 손의 방향이 θ₄ + θ₆의 합에만 달려 있기 때문이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=426">07:06 실물 스탠퍼드 팔</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=519">08:39 손목의 세 관절</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=550">09:10 축 4와 축 6이 한 줄</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=613">10:13 돌 수 없는 축</a></p>
+<h2>8.2 특이점을 찾는 법</h2>
+<p>강의가 내리는 정의는 이렇다. 손끝이 어떤 자세에서 한 방향으로 움직이거나 한 축으로 돌 수 없게 되면, 그 자세를 <strong>기구학적 특이점</strong>(kinematic singularity)이라 한다. 그 방향을 <strong>특이 방향</strong>(singular direction)이라 한다.</p>
+<p>자코비안으로 말하면 열들이 서로 기대어 계수가 줄어든 자세다(7.9절). 열에는 관절 축 z<sub>i</sub>가 들어 있으니, 축들이 겹치거나 나란해지면 열도 기댄다.</p>
+<h3>det J를 인수로 나눈다</h3>
+<p>자코비안이 정사각 행렬이면 det J를 관절 변수의 식으로 계산한다. 잘 정리하면 det J는 몇 개의 식을 곱한 꼴이 된다.</p>
+<div class="math" data-tex="\det J(q) = S_1(q)\; S_2(q) \cdots S_k(q)"></div>
+<p>곱이 0이 되려면 그중 하나만 0이면 된다. 그래서 인수마다 S<sub>i</sub>(q) = 0을 풀면 특이점의 무리가 하나씩 나온다.</p>
+<p>회전행렬은 det가 1이라 좌표계를 바꿔도 det J는 같다(7.9절). 그러니 식이 가장 간단한 좌표계를 골라 계산한다.</p>
+<ul>
+<li>종이 팔: det J = 80 sin θ₂다. 인수 하나, θ₂ = 0°, 180°다.</li>
+<li>스탠퍼드 팔(점 W): det J = d₃² sin θ₂ sin θ₅다(7.10절). 인수가 셋이다. d₃ = 0, θ₂ = 0° 또는 180°, θ₅ = 0° 또는 180°다.</li>
+</ul>
+<h3>열을 보면 바로 보인다: θ₅ = 0</h3>
+<p>det를 계산하지 않고 열만 봐도 알 수 있다. 손목점 W로 잡은 스탠퍼드 팔 자코비안(7.8절)의 4열과 6열은 이렇다.</p>
+<div class="math" data-tex="\text{4열} = \begin{bmatrix} 0 \\ z_4 \end{bmatrix},\qquad \text{6열} = \begin{bmatrix} 0 \\ z_6 \end{bmatrix}"></div>
+<p>θ₅ = 0이면 z₆ = z₄라서 두 열이 똑같아진다. 서로 기대지 않는 열이 5개로 줄어 계수가 5가 된다. 실물 팔의 "축 두 개가 한 줄"이 자코비안에서는 "열 두 개가 같다"로 나타난다.</p>
+<h3>평면 팔은 0인 줄을 빼고 본다</h3>
+<p>평면 팔의 자코비안을 6줄로 쓰면 늘 0인 줄이 셋 생긴다(7.4절). 이런 행렬은 정사각이 아니라 det를 바로 구할 수 없다. 그래서 0인 줄을 빼고, 할 일에 쓰는 줄만 남긴다. 이것을 <strong>줄인 자코비안</strong>(reduced Jacobian)이라 부르자.</p>
+<ul>
+<li>관절 2개로 손끝 위치만 다루면 v<sub>x</sub>, v<sub>y</sub> 두 줄을 남겨 2 × 2다.</li>
+<li>관절 3개로 손끝 위치와 방향을 다루면 v<sub>x</sub>, v<sub>y</sub>, ω<sub>z</sub> 세 줄을 남겨 3 × 3이다.</li>
+</ul>
+<p>6.9절의 3관절 팔(8, 7, 5 cm)이 θ = (0°, 90°, −90°)일 때 줄인 자코비안과 det는 이렇다.</p>
+<div class="math" data-tex="J = \begin{bmatrix} -7 &amp; -7 &amp; 0 \\ 13 &amp; 5 &amp; 5 \\ 1 &amp; 1 &amp; 1 \end{bmatrix},\qquad \det J = 56"></div>
+<p>아무 자세에서나 계산하면 det J = 8 × 7 × sin θ₂ = 56 sin θ₂다. 셋째 링크의 길이도, θ₃도 들어 있지 않다. 까닭은 8.4절을 배운 뒤 문제 2에서 본다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 0인 줄을 빼는 것은 지름길이다. 정사각이 아닌 행렬은 보통 JᵀJ의 det나 <strong>특이값</strong>(singular value)으로 계수를 따진다. 줄인 자코비안은 어느 줄이 늘 0인지 알 때 그 계산을 건너뛰는 방법이다.</p>
+</blockquote>
+<h3>3차원 팔의 세 가지 특이점</h3>
+<p>PUMA처럼 생긴 6관절 팔을 보자. 7.5절의 돌림판 종이 팔(돌림판, 어깨, 팔꿈치) 끝에 스탠퍼드 팔 같은 손목 세 관절을 붙인 팔이다. W로 잡으면 자코비안의 오른쪽 위가 0이 되어(7.8절), det는 두 덩어리의 det를 곱한 것이다.</p>
+<div class="math" data-tex="\det J = \underbrace{\left(-80\, r \sin\theta_3\right)}_{\text{팔: W의 위치}} \times \underbrace{\left(-\sin\theta_5\right)}_{\text{손목: 손 방향}}"></div>
+<p>r은 W에서 돌림판 축까지의 수평 거리다(7장 문제 5). 인수가 셋이라 특이점도 세 무리다.</p>
+<figure data-fig="fig8_2"><div class="fig-title">사람 팔 모양 6관절 팔의 세 가지 특이점</div><div class="fig-body"></div><div class="fig-note">점선 세로선은 돌림판 축 z₁이다. W는 손목점, 주황 선은 손이다.</div><figcaption>그림 8-2 · 팔꿈치, 어깨, 손목 특이점 (팔이 놓인 세로 판을 옆에서 본 모습)</figcaption></figure>
+<ol>
+<li><strong>팔꿈치 특이점</strong>(θ₃ = 0°, 180°): 팔을 쭉 펴면 W가 닿는 영역의 바깥 끝에 온다. 팔 방향으로는 더 나갈 수 없다. 닿는 영역의 경계에서 생기므로 <strong>경계 특이점</strong>(boundary singularity)이라 한다.</li>
+<li><strong>어깨 특이점</strong>(r = 0): W가 돌림판 축 바로 위에 온다. 돌림판을 돌려도 W는 제자리라서, 세로 판에 수직인 방향으로 W를 밀 수 없다.</li>
+<li><strong>손목 특이점</strong>(θ₅ = 0°, 180°): 8.1절에서 본 대로 축 4와 축 6이 한 줄이 된다.</li>
+</ol>
+<p>어깨와 손목 특이점은 닿는 영역 한가운데서 생긴다. 이런 것을 <strong>내부 특이점</strong>(interior singularity)이라 한다. 경계 특이점은 손이 닿는 끝이라 피하기 쉽지만, 내부 특이점은 일하는 영역 안에 있어서 더 조심해야 한다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 어깨 특이점 근처에서 W를 세로 판에 수직으로 1 cm/s 밀려고 한다. r = 1 cm일 때와 r = 0.1 cm일 때 돌림판은 얼마나 빨리 돌아야 하나?</p>
+</blockquote>
+<p>돌림판이 θ̇₁로 돌면 W는 반지름 r인 원을 따라 r θ̇₁의 빠르기로 움직인다. 그러니 θ̇₁ = 1/r이다.</p>
+<p>r = 1 cm이면 1 rad/s, r = 0.1 cm이면 10 rad/s다. 손목점이 돌림판 축을 스치는 길을 시키면 돌림판이 갑자기 휙 돌아야 한다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=677">11:17 특이점의 정의</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=772">12:52 det를 인수의 곱으로</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=1848">30:48 평면 팔은 줄인 행렬로</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=2134">35:34 θ₅ = 0에서 4열과 6열</a></p>
+<h2>8.3 PUMA 시뮬레이션: 문제는 특이점 근처다</h2>
+<h3>강의 예제: 쭉 편 종이 팔</h3>
+<p>강의는 2관절 팔로 돌아간다. 7.7절의 ¹J(링크 1의 좌표계로 적은 J)에 θ₂ = 0°를 넣는다.</p>
+<div class="math" data-tex="{}^{1}J = \begin{bmatrix} -8 s_2 &amp; -8 s_2 \\ 10 + 8 c_2 &amp; 8 c_2 \end{bmatrix} \;\xrightarrow{\ \theta_2 = 0\ }\; \begin{bmatrix} 0 &amp; 0 \\ 18 &amp; 8 \end{bmatrix}"></div>
+<p>첫 줄이 0이라 δθ₁, δθ₂를 어떻게 넣어도 δx₁ = 0이다. x₁은 링크 1 방향, 곧 쭉 편 팔이 놓인 방향이다. 어깨를 돌리든 팔꿈치를 돌리든 손끝은 같은 원의 접선 방향(y₁)으로만 간다.</p>
+<h3>화면 속 PUMA를 끌어 보기</h3>
+<p>교수는 이어서 컴퓨터 속 PUMA를 보여 준다. 중력을 상쇄해 팔이 둥둥 떠 있어서, 손끝에 힘을 걸어 끌면 그쪽으로 따라온다.</p>
+<p>팔을 거의 편 채 팔 방향으로 끌면 겨우 움직이고 아주 무겁다. 다 편 자세에서는 아무리 세게 끌어도 팔 방향으로는 꿈쩍하지 않는다.</p>
+<p>다른 방향으로 끌면 바로 움직인다. 그 까닭은 8.9절에서 힘 쪽으로 다시 본다.</p>
+<h3>θ₂ = ε일 때의 역행렬</h3>
+<p>특이점 위만 피하면 될까? 강의의 대답은 "아니다"다. 가까워지기만 해도 J는 조건이 나쁜 행렬이 되고, J⁻¹에 큰 수가 생긴다(7.10절).</p>
+<p>θ₂가 아주 작은 각 ε(라디안)이라 하자. sin ε ≈ ε, cos ε ≈ 1로 어림하면 ¹J ≈ [[−8ε, −8ε], [18, 8]]이고, det는 80ε이다. 역행렬은 이렇다.</p>
+<div class="math" data-tex="{}^{1}J^{-1} \approx \frac{1}{80\,\varepsilon}\begin{bmatrix} 8 &amp; 8\varepsilon \\ -18 &amp; -8\varepsilon \end{bmatrix}
+= \begin{bmatrix} \dfrac{1}{10\,\varepsilon} &amp; \dfrac{1}{10} \\[12pt] -\dfrac{9}{40\,\varepsilon} &amp; -\dfrac{1}{10} \end{bmatrix}"></div>
+<p>손끝 속도를 {1}의 숫자 (ẋ₁, ẏ₁)로 주면 관절 속도는 다음과 같다.</p>
+<div class="math" data-tex="\dot\theta_1 \approx \frac{\dot x_1}{10\,\varepsilon} + \frac{\dot y_1}{10},\qquad
+\dot\theta_2 \approx -\frac{9\,\dot x_1}{40\,\varepsilon} - \frac{\dot y_1}{10}"></div>
+<p><strong>ε로 나누는 것은 팔 방향 몫 ẋ₁뿐이다.</strong> 팔에 수직인 몫 ẏ₁은 ε과 상관없이 쉽다. 특이점 근처에서 터지는 것은 특이 방향의 명령이다.</p>
+<p>ε = 2°(0.035 rad)에서 팔 방향으로 겨우 1 mm/s를 원한다고 하자. 팔꿈치는 9 × 0.1 ÷ (40 × 0.035) ≈ 0.64 rad/s로 돌아야 한다. 7.10절의 표와 같은 이야기를 식으로 본 것이다.</p>
+<p>ε이 음수(팔꿈치가 반대쪽으로 조금 굽은 자세)이면 1/ε의 부호가 뒤집힌다. 0의 양쪽에서 각각 +∞와 −∞로 가는 그래프가 강의에 나온다. 어느 쪽에서 다가가든 필요한 관절 속도는 끝없이 커지고, 특이점 위에서는 어떤 값으로도 안 된다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=962">16:02 2관절 팔 예제</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=1376">22:56 PUMA 시뮬레이션</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=1501">25:01 특이점 근처가 문제다</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=1661">27:41 θ₂ = ε일 때의 역행렬</a></p>
+<h2>8.4 속도를 재는 점 옮기기</h2>
+<p>7장에서 스탠퍼드 팔의 자코비안은 손목점 W에서 구했다. 식이 가장 간단하기 때문이다.</p>
+<p>그런데 일은 집게 끝이나 쥔 공구의 끝 E에서 한다. W와 E 사이는 손에 고정된 화살표 p<sub>WE</sub> 하나다.</p>
+<h3>각속도는 같고, 선속도에 ω × p가 더해진다</h3>
+<p>W와 E는 같은 손(마지막 링크)에 붙어 있다. 그래서 둘의 속도 관계는 6.6절의 "도는 물체 위의 점"과 같다.</p>
+<div class="math" data-tex="\omega_E = \omega_W,\qquad v_E = v_W + \omega_W \times p_{WE}"></div>
+<p>강의에서 학생 몇이 "v<sub>E</sub> = v<sub>W</sub>"라고 답하자 교수가 6장의 사과 꼬챙이를 떠올리게 한다. W가 멈춰 있어도 손이 돌면 E는 움직인다.</p>
+<p>ω × p = −p × ω = −p̂ ω다(6.7절의 외적 연산자). 그래서 두 식을 행렬 하나로 묶는다. 이 관계는 어느 q̇에서나 맞으므로 자코비안끼리도 같은 행렬로 이어진다.</p>
+<div class="math" data-tex="\begin{bmatrix} v_E \\ \omega_E \end{bmatrix} = \begin{bmatrix} I &amp; -\hat p_{WE} \\ 0 &amp; I \end{bmatrix} \begin{bmatrix} v_W \\ \omega_W \end{bmatrix}"></div>
+<div class="math" data-tex="J_E = \begin{bmatrix} I &amp; -\hat p_{WE} \\ 0 &amp; I \end{bmatrix} J_W"></div>
+<p>I는 3 × 3 단위행렬이다. 각속도 쪽(아래 덩어리)은 그대로이고, 선속도 쪽에만 −p̂ J<sub>ω</sub>가 더해진다.</p>
+<h3>예: 3관절 팔의 손목에서 손끝으로</h3>
+<p>6.9절의 3관절 팔(8, 7, 5 cm)을 θ = (0°, 90°, −90°)에 둔다. 셋째 관절 자리를 손목 W = (8, 7)로, 손끝을 E = (13, 7)로 본다. p<sub>WE</sub> = (5, 0)이다.</p>
+<p>J<sub>W</sub>의 열은 7.4절처럼 관절에서 W까지의 화살표를 90° 돌려 얻는다. 셋째 관절은 W를 지나는 축이라 셋째 열의 위 칸이 0이다.</p>
+<div class="math" data-tex="J_W = \begin{bmatrix} -7 &amp; -7 &amp; 0 \\ 8 &amp; 0 &amp; 0 \\ 1 &amp; 1 &amp; 1 \end{bmatrix}"></div>
+<p>평면에서는 ω × p = (−ω p<sub>y</sub>, ω p<sub>x</sub>)라서 옮기는 행렬도 3 × 3으로 줄어든다. p<sub>y</sub> = 0, p<sub>x</sub> = 5를 넣는다.</p>
+<div class="math" data-tex="J_E = \begin{bmatrix} 1 &amp; 0 &amp; -p_y \\ 0 &amp; 1 &amp; p_x \\ 0 &amp; 0 &amp; 1 \end{bmatrix} J_W"></div>
+<div class="math" data-tex="= \begin{bmatrix} 1 &amp; 0 &amp; 0 \\ 0 &amp; 1 &amp; 5 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}\begin{bmatrix} -7 &amp; -7 &amp; 0 \\ 8 &amp; 0 &amp; 0 \\ 1 &amp; 1 &amp; 1 \end{bmatrix}
+= \begin{bmatrix} -7 &amp; -7 &amp; 0 \\ 13 &amp; 5 &amp; 5 \\ 1 &amp; 1 &amp; 1 \end{bmatrix}"></div>
+<p>6.9절에서 손끝을 직접 미분해 얻은 J, 8.2절의 J와 같다. 둘째 줄에 마지막 줄 × 5를 더한 것뿐이다.</p>
+<figure data-fig="fig8_3"><div class="fig-title">손목 속도에 ω × p를 더하면 손끝 속도다</div><div class="fig-body"></div><div class="fig-note">파랑은 손목 속도 v<sub>W</sub>(손끝으로 옮긴 점선도 같은 화살표), 주황은 손이 ω = 1 rad/s로 돌아서 생기는 몫 ω × p<sub>WE</sub>, 검정은 손끝 속도 v<sub>E</sub>다.</div><figcaption>그림 8-3 · 3관절 팔, θ = (0°, 90°, −90°), θ̇ = (0.5, 0.5, 0) rad/s</figcaption></figure>
+<p>그림의 숫자를 확인하자. v<sub>W</sub> = J<sub>W</sub> θ̇ = (−7, 4) cm/s이고 ω = 0.5 + 0.5 + 0 = 1 rad/s다. ω × p<sub>WE</sub> = (0, 5)를 더하면 v<sub>E</sub> = (−7, 9) cm/s다. J<sub>E</sub> θ̇로 바로 구해도 같다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 셋째 관절만 1 rad/s로 돌리면(θ̇ = (0, 0, 1)) v<sub>W</sub>와 v<sub>E</sub>는 얼마인가?</p>
+</blockquote>
+<p>v<sub>W</sub> = 0이다. 셋째 관절의 축이 W를 지나기 때문이다(J<sub>W</sub>의 셋째 열 위 칸이 0).</p>
+<p>손은 1 rad/s로 돌고, v<sub>E</sub> = ω × p = (0, 5) cm/s다. J<sub>E</sub>의 셋째 열 (0, 5, 1)이 바로 이것이다.</p>
+<h3>좌표계를 맞춘다</h3>
+<p>숫자로 계산할 때는 p<sub>WE</sub>도 J<sub>W</sub>와 같은 좌표계로 적어야 한다. p<sub>WE</sub>는 보통 손 좌표계 {n}에서 간단하다. 공구가 z<sub>n</sub>을 따라 7 cm 나와 있으면 ⁿp = (0, 0, 7)이다.</p>
+<p>J<sub>W</sub>가 {0}의 숫자라면 p̂도 {0}의 숫자여야 한다. 가장 쉬운 길은 p를 먼저 {0}으로 돌리고 나서 모자를 씌우는 것이다.</p>
+<div class="math" data-tex="{}^{0}p = {}^{0}_{n}R\;{}^{n}p \quad\Longrightarrow\quad {}^{0}\hat p = \widehat{{}^{0}p}"></div>
+<p>모자를 먼저 씌운 행렬을 옮기려면 앞뒤로 곱해야 한다. ⁰p̂ = ⁰ₙR ⁿp̂ ⁰ₙRᵀ다. 앞에만 R을 곱하면 틀린다.</p>
+<p>강의에서 교수가 "이 실수를 하지 말라"고 짚는 부분이다.</p>
+<blockquote>
+<p><strong>수학 더하기: 왜 앞뒤로 곱하나.</strong> p̂는 화살표가 아니라 "화살표를 받아 화살표를 내놓는" 행렬이다. ⁰p̂ ⁰ω를 차례로 따라가 보자.</p>
+<p>먼저 Rᵀ가 ⁰ω를 {n}의 숫자로 바꾼다. 다음에 ⁿp̂가 {n}에서 외적을 한다. 마지막에 R이 결과를 {0}으로 되돌린다.</p>
+<p>그래서 R ⁿp̂ Rᵀ다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=2199">36:39 손목점과 손끝</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=2397">39:57 v<sub>E</sub>는 v<sub>W</sub>와 같은가</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=2557">42:37 점을 옮기는 행렬</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=2840">47:20 좌표계 실수</a></p>
+<h2>8.5 손끝 속도로 팔 움직이기: resolved-rate 제어</h2>
+<p>자코비안은 속도를 분석하는 데만 쓰지 않는다. 팔을 움직이는 데도 쓴다. 강의에 따르면 많은 로봇이 자코비안 하나로 손끝을 움직인다.</p>
+<h3>작은 걸음을 이어 붙인다</h3>
+<p>손끝을 목표 x<sub>d</sub>로 보내고 싶다고 하자. 특이점에서 떨어져 있으면 J⁻¹이 있으니, 다음을 되풀이한다.</p>
+<ol>
+<li>관절 각도 θ를 잰다(모터의 각도 센서).</li>
+<li>순기구학으로 지금 손끝 x = f(θ)를 구한다.</li>
+<li>목표와의 차이 δx = x<sub>d</sub> − x를 구한다. J를 쓰려면 이 차이가 작아야 한다.</li>
+<li>δθ = J(θ)⁻¹ δx를 구한다.</li>
+<li>관절마다 θ + δθ로 가라고 명령하고, 1로 돌아간다.</li>
+</ol>
+<p>같은 생각을 속도로 쓰면 이렇다. 원하는 손끝 속도 ẋ<sub>d</sub>를 관절 속도로 "풀어서"(resolve) 관절마다 나눠 준다.</p>
+<div class="math" data-tex="\dot\theta = J(\theta)^{-1}\,\dot x_d"></div>
+<p>이 방법을 <strong>resolved-rate 제어</strong>(resolved motion rate control)라 한다. 1970년 무렵 Daniel Whitney가 내놓았다. 동역학도 접촉 힘도 생각하지 않는 아주 단순한 방법이다.</p>
+<h3>시간 간격 Δt로 걷기</h3>
+<p>컴퓨터는 이 계산을 Δt마다 한 번씩 한다. 두 가지 방법을 견주어 보자.</p>
+<ul>
+<li><strong>속도만 더하기</strong>: θ<sub>k+1</sub> = θ<sub>k</sub> + J⁻¹ ẋ<sub>d</sub> Δt. 손끝이 어디 있는지 다시 재지 않는다.</li>
+<li><strong>손끝을 다시 재기</strong>: θ<sub>k+1</sub> = θ<sub>k</sub> + J⁻¹ (x<sub>d</sub>(t<sub>k+1</sub>) − f(θ<sub>k</sub>)). 위의 1~5단계 그대로다.</li>
+</ul>
+<p>J는 지금 자세의 접선 방향만 안다(6.3절). 그래서 걸음마다 조금씩 빗나간다. 속도만 더하면 빗나감이 쌓이고, 다시 재면 다음 걸음에서 고친다.</p>
+<figure data-fig="fig8_4"><div class="fig-title">손끝을 다시 재면 걸음이 커도 길을 지킨다</div><div class="fig-body"></div><div class="fig-note">손끝을 A = (14, 4)에서 B = (−2, 12) cm까지 8초 동안 곧게 옮긴다. 주황 점은 속도만 더한 걸음, 파란 점은 걸음마다 손끝을 다시 잰 걸음이다. 회색 팔은 처음 자세다.</div><figcaption>그림 8-4 · 직접 바꿔 보기: resolved-rate 걸음</figcaption></figure>
+<p>해 볼 것 두 가지:</p>
+<ol>
+<li>걸음 수를 8(Δt = 1초)로 둔다. 속도만 더하면 끝에서 2.4 cm 빗나가고, 다시 재면 0.26 cm다.</li>
+<li>걸음 수를 32(Δt = 0.25초)로 늘린다. 둘 다 좋아지지만 다시 재기가 훨씬 빨리 좋아진다. 0.56 cm 대 0.016 cm다.</li>
+</ol>
+<blockquote>
+<p><strong>알아 두기.</strong> 목표를 움직이지 않고 "다시 재기" 걸음을 되풀이하면 두세 걸음 만에 손끝이 목표에 거의 정확히 닿는다(문제 5). 역기구학을 숫자로 푸는 방법이기도 하다.</p>
+<p>다만 이 방법은 느리고 작게 움직일 때 잘 된다. 빠르게 움직이면 가속도와 동역학을 무시한 탓에 오차가 커진다. 강의도 이 한계를 짚는다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=3131">52:11 자코비안으로 팔 움직이기</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3225">53:45 δx = x<sub>d</sub> − x</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3287">54:47 Whitney의 resolved-rate 제어</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3318">55:18 이 방법의 한계</a></p>
+<h2>8.6 특이점 가까이에서 생기는 일</h2>
+<p>이번에는 resolved-rate 제어로 손끝을 닿는 영역의 끝 쪽으로 곧게 보내 보자. 손끝을 y = 5 cm인 선을 따라 x = 10 cm에서 17.29 cm까지 1 cm/s로 옮긴다. 끝점은 팔을 거의 다 편 자세(θ₂ ≈ 1.5°)다.</p>
+<figure data-fig="fig8_5"><div class="fig-title">손끝은 일정하게 가는데, 끝에서 관절 속도가 치솟는다</div><div class="fig-body"></div><div class="fig-note">아래 그래프는 시간에 따른 관절 속도의 크기다(파랑 θ̇₁, 주황 θ̇₂). λ를 올리면 감쇠가 없을 때(λ = 0)의 선이 흐리게 남는다. 8.5절처럼 손끝을 다시 재며 간다.</div><figcaption>그림 8-5 · 직접 움직여 보기: 경계로 가는 직선과 관절 속도</figcaption></figure>
+<p>해 볼 것 두 가지:</p>
+<ol>
+<li>λ = 0에서 시간을 처음부터 끝까지 민다. 7초까지 팔꿈치는 기껏해야 0.6 rad/s로 느긋하다. 그런데 마지막 0.3초 사이에 8 rad/s까지 치솟는다.</li>
+<li>λ를 1로 올린다. 관절 속도가 0.7 rad/s 아래로 눌린다. 대신 팔이 끝까지 펴지지 않고(θ₂ ≈ 13°), 손끝이 목표보다 0.1 cm쯤 덜 간다.</li>
+</ol>
+<h3>무엇이 잘못되나</h3>
+<p>손끝 속도는 끝까지 1 cm/s로 아무 문제가 없어 보인다. 그런데 그 속도에는 팔 방향 몫이 남아 있고, θ₂는 0으로 간다. 8.3절의 1/ε 때문에 관절 속도가 끝없이 커진다.</p>
+<p>진짜 모터는 속도 한계가 있어서 따라가지 못한다. 손끝이 길을 벗어나거나 팔이 덜컥거린다. 그래서 실제 로봇은 이렇게 한다.</p>
+<ul>
+<li>특이점을 지나거나 스치는 길을 애초에 짜지 않는다.</li>
+<li>특이점에 가까워지면 손끝 속도를 줄인다.</li>
+<li>J⁻¹ 대신, 특이점 근처에서도 터지지 않는 식을 쓴다.</li>
+</ul>
+<h3>감쇠 최소제곱</h3>
+<p>세 번째 방법 가운데 널리 쓰는 것이 <strong>감쇠 최소제곱</strong>(damped least squares)이다. λ는 길이(cm) 단위의 작은 수다.</p>
+<div class="math" data-tex="\dot\theta = J^{T}\left(J J^{T} + \lambda^{2} I\right)^{-1} \dot x_d"></div>
+<p>λ = 0이면 J⁻¹ẋ<sub>d</sub>와 같다. λ &gt; 0이면 손끝 속도를 조금 덜 정확하게 맞추는 대신 관절 속도를 아낀다. 어떤 자세에서도 관절 속도의 크기가 |ẋ<sub>d</sub>|/(2λ)를 넘지 않는다.</p>
+<p>λ를 아주 크게 하면 관절 속도는 아주 작아지지만 손끝도 거의 움직이지 않는다. 그래서 λ는 특이점 근처에서만 키우고, 멀리서는 0에 가깝게 두는 경우가 많다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=1501">25:01 특이점 근처는 조건이 나쁘다</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=1785">29:45 δq가 커지는 그래프</a></p>
+<h2>8.7 문 열기: 속도와 힘은 짝이다</h2>
+<p>강의의 마지막 주제는 <strong>정적 힘</strong>(static force)이다. 팔이 멈춘 채로 손끝으로 무엇을 누르거나 버틸 때, 관절이 내야 할 토크를 구한다. 여기서도 답은 같은 자코비안이다.</p>
+<p>교수는 연구실 문을 여는 사진으로 시작한다. 손잡이를 돌리고 문을 밀면 문은 경첩 축으로 돈다. 문은 자유도가 1인 기구다.</p>
+<figure data-fig="fig8_6"><div class="fig-title">같은 화살표 p가 속도와 힘을 이어 준다</div><div class="fig-body"></div><div class="fig-note">경첩에서 미는 점 P까지가 p다. 회색 점선 방향(문판과 나란한 방향)으로는 속도도 안 생기고, 그 방향 힘은 토크도 안 만든다.</div><figcaption>그림 8-6 · 문을 위에서 본 모습: (가) 속도, (나) 힘</figcaption></figure>
+<ul>
+<li><strong>속도</strong>: 문이 각속도 ω로 돌면 점 P의 속도는 v = ω × p다(6.6절).</li>
+<li><strong>힘</strong>: 점 P를 힘 F로 밀면 경첩 축에 생기는 토크는 τ = p × F다. 이번에는 p가 앞에 온다(6.6절에서 미리 말한 대로).</li>
+</ul>
+<p>숫자로 해 보자. 경첩에서 0.7 m 떨어진 곳을 문판에 수직으로 20 N으로 밀면 τ = 0.7 × 20 = 14 N·m다. 문이 0.5 rad/s로 돌면 그 점은 0.7 × 0.5 = 0.35 m/s로 움직인다.</p>
+<h3>두 식을 행렬로 쓰면</h3>
+<p>외적 연산자(6.7절)로 두 식을 행렬로 쓴다. 외적은 순서를 바꾸면 부호가 바뀌므로 v = ω × p = −p × ω다.</p>
+<div class="math" data-tex="v = \left(-\hat p\right)\omega,\qquad \tau = \hat p\, F"></div>
+<p>p̂는 반대칭 행렬이라 p̂ᵀ = −p̂다. 그러니 τ = p̂F = (−p̂)ᵀF다. 속도를 옮기는 행렬을 J라 하면, 힘을 거꾸로 옮기는 행렬은 그 전치다.</p>
+<div class="math" data-tex="v = J\,\omega,\qquad \tau = J^{T} F,\qquad J = -\hat p"></div>
+<p>이것이 1장에서 이름만 들은 <strong>속도·힘 쌍대성</strong>(velocity–force duality)이다.</p>
+<p>평면에서 확인해 보자. 문이 책상 면처럼 수평으로 돌고 축이 z라면 p = (p<sub>x</sub>, p<sub>y</sub>)다.</p>
+<div class="math" data-tex="\begin{bmatrix} v_x \\ v_y \end{bmatrix} = \begin{bmatrix} -p_y \\ p_x \end{bmatrix} \omega,\qquad
+\tau = \begin{bmatrix} -p_y &amp; p_x \end{bmatrix} \begin{bmatrix} F_x \\ F_y \end{bmatrix}"></div>
+<p>같은 칸 (−p<sub>y</sub>, p<sub>x</sub>)가 세로로 서면 속도를, 가로로 누우면 힘을 옮긴다. 종이 팔 자코비안의 첫 열 (−y, x)와 같은 모양이다(6.3절).</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 문판을 따라 경첩 쪽으로 밀면 문은 어떻게 되나? 그림 8-6의 회색 점선 방향이다.</p>
+</blockquote>
+<p>문은 돌지 않는다. F가 p와 나란하면 p × F = 0이다. 문 위의 점은 그 방향으로 움직일 수도 없다.</p>
+<p><strong>속도가 못 나오는 방향과, 힘이 토크를 못 만드는 방향이 같다.</strong> 8.9절의 특이 자세에서 같은 일이 생긴다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=3350">55:50 힘에도 같은 행렬</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3383">56:23 문 열기</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3478">57:58 τ = p × F</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3608">1:00:08 속도와 힘의 쌍대성</a></p>
+<h2>8.8 손끝 힘에서 관절 토크로: τ = Jᵀ F</h2>
+<h3>손끝의 힘과 모멘트</h3>
+<p>손끝은 바깥에 힘 f(숫자 3개)를 주고, 비트는 <strong>모멘트</strong>(moment) n(숫자 3개)도 줄 수 있다. 드라이버로 나사를 돌리는 것이 모멘트다.</p>
+<p>둘을 모은 숫자 6개를 F라 쓴다. 선속도 v, 각속도 ω와 짝을 이룬다.</p>
+<div class="math" data-tex="F = \begin{bmatrix} f \\ n \end{bmatrix} \quad\longleftrightarrow\quad \begin{bmatrix} v \\ \omega \end{bmatrix} = J\,\dot q"></div>
+<p>이 장에서 F는 <strong>손끝이 바깥에 주는 힘</strong>이다. 바깥이 손끝을 미는 힘은 그 반대인 −F다. 관절이 내는 힘(회전 관절은 토크, 직동 관절은 미는 힘)을 모아 τ라 쓴다.</p>
+<h3>방법 1: 링크마다 평형 잡기</h3>
+<p>속도 전파(6.8절)처럼 힘도 링크에서 링크로 넘길 수 있다. 이번에는 손끝에서 출발해 받침 쪽으로 간다. 이것을 <strong>힘 전파</strong>(force propagation)라 한다.</p>
+<p>링크 i가 멈춰 있으려면 걸린 힘의 합이 0이고, 한 점에 대한 모멘트의 합도 0이어야 한다. 링크 i는 받침 쪽 관절 i에서 f<sub>i</sub>, n<sub>i</sub>를 받고, 손끝 쪽 관절 i+1에서 −f<sub>i+1</sub>, −n<sub>i+1</sub>을 받는다. 관절 i의 원점에 대한 모멘트로 정리하면 이렇다.</p>
+<div class="math" data-tex="f_i = f_{i+1},\qquad n_i = n_{i+1} + p_{i,i+1} \times f_{i+1}"></div>
+<p>p<sub>i,i+1</sub>은 관절 i의 원점에서 관절 i+1의 원점까지의 화살표다. 관절 모터는 이 가운데 자기 축 방향 몫만 낸다. 나머지는 베어링과 링크 구조가 받는다.</p>
+<div class="math" data-tex="\tau_i = z_i^{T}\, n_i\ \ (\text{회전 관절}),\qquad \tau_i = z_i^{T} f_i\ \ (\text{직동 관절})"></div>
+<p>종이 팔로 해 보자. 손끝이 힘 f를 준다. 팔꿈치 모멘트는 n₂ = p<sub>2E</sub> × f다. 어깨까지 오면 n₁ = n₂ + p₁₂ × f = p<sub>1E</sub> × f다(p₁₂ + p<sub>2E</sub> = p<sub>1E</sub>).</p>
+<p>그래서 관절 i의 토크는 "손끝 힘이 관절 i의 축에 만드는 모멘트"다. 세 벡터의 곱을 바꿔 쓰면 낯익은 모양이 나온다.</p>
+<div class="math" data-tex="\tau_i = z_i \cdot \left(p_{iE} \times f\right) = \left(z_i \times p_{iE}\right) \cdot f"></div>
+<blockquote>
+<p><strong>수학 더하기: 세 벡터의 곱.</strong> a · (b × c) = (a × b) · c다. 세 화살표가 만드는 평행육면체의 부피(부호 포함)라서, 순서만 지키면 점과 곱의 자리를 바꿔도 값이 같다.</p>
+<p>예: a = (0, 0, 1), b = (1, 0, 0), c = (0, 2, 0)이다. b × c = (0, 0, 2)라서 a · (b × c) = 2다. a × b = (0, 1, 0)이라서 (a × b) · c = 2로 같다.</p>
+</blockquote>
+<p>z<sub>i</sub> × p<sub>iE</sub>는 7.2절에서 본 자코비안의 i번째 열이다. 그러니 τ<sub>i</sub>는 "J의 i번째 열 · f"이고, 모두 모으면 τ = J<sub>v</sub>ᵀ f다. 손끝 모멘트 n까지 넣으면 τ = JᵀF가 된다.</p>
+<h3>방법 2: 가상일</h3>
+<p>힘 전파는 링크 사이에서 주고받는 <strong>내부 힘</strong>(internal force)을 일일이 구했다가 지운다. <strong>가상일의 원리</strong>(principle of virtual work)를 쓰면 내부 힘을 처음부터 생각하지 않아도 된다.</p>
+<blockquote>
+<p><strong>수학 더하기: 일과 일률.</strong> 힘 F로 물체를 δx만큼 밀면 <strong>일</strong>(work)은 F · δx다. 힘과 같은 방향으로 움직인 몫만 센다. 토크 τ로 δθ만큼 돌리면 일은 τ δθ다.</p>
+<p>일을 걸린 시간으로 나눈 것이 <strong>일률</strong>(power)이다. F · ẋ나 τ θ̇로 쓴다.</p>
+</blockquote>
+<p>내부 힘은 일을 하지 않는다. 링크 구조가 그 힘을 받아 버틸 뿐, 그 방향으로는 아무것도 움직이지 않기 때문이다. 일을 하는 것은 관절 토크 τ와 손끝 힘 F뿐이다.</p>
+<p>팔이 멈춰 버티고 있을 때, 관절을 아주 조금 δq 움직였다고 상상하자. 실제로는 움직이지 않으니 "가상" 변위다. 손끝은 δx = J δq만큼 움직인다.</p>
+<p>모터가 한 일은 τᵀδq다. 평형이면 그 일이 고스란히 손끝을 통해 바깥으로 나가므로 Fᵀδx와 같다.</p>
+<div class="math" data-tex="\tau^{T}\delta q = F^{T}\delta x = F^{T} J\,\delta q"></div>
+<p>이 식은 어떤 δq에서나 맞아야 한다. δq = (1, 0)을 넣으면 τ₁이, (0, 1)을 넣으면 τ₂가 정해진다. 그러니 δq 앞의 숫자가 칸마다 같고, 전치하면 답이 나온다.</p>
+<div class="math" data-tex="\tau = J^{T} F"></div>
+<p>δ를 시간으로 나누면 일률이 같다는 말이 된다. 모터가 넣는 일률이 손끝에서 나가는 일률이다.</p>
+<div class="math" data-tex="\tau^{T}\dot q = F^{T}\dot x"></div>
+<h3>숫자로 확인</h3>
+<p>종이 팔이 θ = (30°, 60°)에 있다. J = [[−13, −8], [8.66, 0]]이다(6.3절). 손끝이 −x 방향으로 F = (−1, 0) N을 준다.</p>
+<div class="math" data-tex="\tau = J^{T}F = \begin{bmatrix} -13 &amp; 8.66 \\ -8 &amp; 0 \end{bmatrix}\begin{bmatrix} -1 \\ 0 \end{bmatrix} = \begin{bmatrix} 13 \\ 8 \end{bmatrix}\ \text{N}\cdot\text{cm}"></div>
+<p>길이를 cm로 쟀으니 토크의 단위는 N·cm다(100 N·cm = 1 N·m). 6.3절처럼 θ̇ = (0.5, 1) rad/s로 움직이면 ẋ = (−14.5, 4.33) cm/s다.</p>
+<p>일률을 맞춰 보자. τᵀθ̇ = 13 × 0.5 + 8 × 1 = 14.5이고, Fᵀẋ = (−1)(−14.5) + 0 × 4.33 = 14.5다. 둘 다 14.5 N·cm/s로 같다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 숙제나 다른 책에서는 "손끝에 걸린 힘을 버틴다"고 쓸 때가 많다. 걸린 힘이 F<sub>ext</sub>이면 손끝이 주는 힘은 −F<sub>ext</sub>라서 τ = −JᵀF<sub>ext</sub>다. 계산하기 전에 부호부터 정한다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=3701">1:01:41 힘 전파</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3857">1:04:17 링크마다 평형</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=4077">1:07:57 가상일의 원리</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=4234">1:10:34 τᵀδq = Fᵀδx</a></p>
+<h2>8.9 강의 예제: 1 N과 1000 N</h2>
+<h3>1 N 버티기</h3>
+<p>강의 예제는 링크 길이가 1 m, 1 m인 2관절 팔이다. θ₁ = 0°, θ₂ = 60°에서 손끝이 아래(−y)로 1 N을 준다. s₁ = 0, c₁ = 1, s₁₂ ≈ 0.866, c₁₂ = 0.5다.</p>
+<div class="math" data-tex="J^{T} = \begin{bmatrix} -l_1 s_1 - l_2 s_{12} &amp; l_1 c_1 + l_2 c_{12} \\ -l_2 s_{12} &amp; l_2 c_{12} \end{bmatrix} = \begin{bmatrix} -0.866 &amp; 1.5 \\ -0.866 &amp; 0.5 \end{bmatrix}"></div>
+<div class="math" data-tex="\tau = J^{T}\begin{bmatrix} 0 \\ -1 \end{bmatrix} = \begin{bmatrix} -1.5 \\ -0.5 \end{bmatrix}\ \text{N}\cdot\text{m}"></div>
+<p>어깨의 1.5 N·m는 1 N × 1.5 m다. 손끝이 어깨에서 가로로 1.5 m 떨어져 있기 때문이다.</p>
+<p>팔꿈치의 0.5 N·m도 팔꿈치에서 손끝까지의 가로 거리 0.5 m에서 나온다. 음수는 시계 방향으로 비틀어야 한다는 뜻이다.</p>
+<h3>1000 N을 토크 0으로</h3>
+<p>이번에는 θ₁ = 90°, θ₂ = 0°로 팔을 똑바로 세우고, 손끝이 아래로 1000 N을 준다. c₁ = c₁₂ = 0이라 Jᵀ의 둘째 열이 0이다.</p>
+<div class="math" data-tex="\tau = J^{T}\begin{bmatrix} 0 \\ -1000 \end{bmatrix} = \begin{bmatrix} -2 &amp; 0 \\ -1 &amp; 0 \end{bmatrix}\begin{bmatrix} 0 \\ -1000 \end{bmatrix} = \begin{bmatrix} 0 \\ 0 \end{bmatrix}"></div>
+<p>모터는 아무 토크도 내지 않는다. 힘이 팔을 따라 곧게 내려가서 받침이 다 받는다. 특이 자세에서는 특이 방향으로 움직일 수 없는 대신, 그 방향의 힘을 토크 없이 버틴다.</p>
+<p>무거운 것을 들 때 팔다리를 펴는 까닭이다. 강의도 이 말로 끝난다. 특이 자세 근처에서는 작은 토크로 아주 큰 힘을 낸다.</p>
+<p>8.3절의 "아주 무거운 PUMA"도 이것으로 설명된다. 팔 방향으로 거는 힘은 관절 토크 JᵀF를 거의 만들지 못한다. 그러니 관절이 돌지 않는다.</p>
+<h3>계란을 1 N으로 누르기</h3>
+<p>종이 팔로 해 보자. 책상에 놓인 계란을 손끝으로 1 N만큼 민다. 아래 그림에서 힘의 방향과 크기, 팔꿈치 각을 바꿔 가며 두 관절의 토크를 본다.</p>
+<figure data-fig="fig8_7"><div class="fig-title">손끝 힘을 Jᵀ로 옮기면 관절 토크다</div><div class="fig-body"></div><div class="fig-note">관절의 굽은 화살표가 토크다. 반시계 방향이 +이고, 길이는 토크 크기에 비례한다. 점선은 관절에서 손끝까지의 화살표 p<sub>1E</sub>, p<sub>2E</sub>다.</div><figcaption>그림 8-7 · 직접 밀어 보기: 손끝 힘과 관절 토크 (θ₁ = 30°)</figcaption></figure>
+<p>해 볼 것 세 가지:</p>
+<ol>
+<li>처음 값(θ₂ = 60°, 힘의 방향 90°, 1 N)에서 τ = (8.66, 0) N·cm다. 팔뚝이 마침 y 방향이라 힘이 팔뚝을 따라 팔꿈치를 지난다. 팔꿈치 토크가 0인 까닭이다.</li>
+<li>힘의 방향을 돌려 가며 토크가 0이 되는 방향을 찾는다. 힘이 관절에서 손끝까지의 점선과 나란하면 그 관절의 토크가 0이다.</li>
+<li>θ₂ = 0°로 팔을 편다. 힘의 방향을 팔 방향(30° 또는 −150°)으로 두면 두 토크가 모두 0이다. 1000 N 예제와 같은 일이다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 손끝이 힘 없이 모멘트 n<sub>z</sub> = 2 N·cm만 준다면(손끝을 비틀기만) 관절 토크는 얼마인가? J<sub>ω</sub>의 줄 (1, 1)을 쓴다.</p>
+</blockquote>
+<p>τ = J<sub>ω</sub>ᵀ n<sub>z</sub> = (1, 1) × 2 = (2, 2) N·cm다. 힘이 없으니 지렛대 몫(p × f)이 생기지 않는다. 모멘트는 링크를 따라 그대로 받침까지 전해지고, 두 관절이 같은 토크로 버틴다.</p>
+<h3>속도 타원과 힘 타원</h3>
+<p>같은 J가 속도와 힘을 옮기니, 둘 사이에는 깔끔한 관계가 있다. 관절 속도를 길이 1인 원에서 고르면 손끝 속도는 타원 위에 놓였다(7.10절). 관절 토크를 원에서 고르면 손끝 힘 F = (Jᵀ)⁻¹τ도 타원 위에 놓인다.</p>
+<figure data-fig="fig8_8"><div class="fig-title">속도를 잘 못 내는 방향으로 힘을 잘 낸다</div><div class="fig-body"></div><div class="fig-note">파란 타원은 크기 1 rad/s인 관절 속도들이 만드는 손끝 속도, 주황 타원은 크기 10 N·cm인 관절 토크들이 만드는 손끝 힘이다. 두 타원의 그림 비율은 따로 맞췄다.</div><figcaption>그림 8-8 · 같은 자세(θ₁ = 20°, θ₂ = 30°)의 속도 타원과 힘 타원</figcaption></figure>
+<p>두 타원의 축은 같은 방향을 보고, 길이는 서로 거꾸로다. 이 자세에서 속도 타원은 팔에 거의 수직으로 19 cm/s, 팔 방향으로 2.1 cm/s다. 힘 타원은 팔 방향으로 4.8 N, 팔에 수직으로 0.53 N이다.</p>
+<p>특이점에 가까울수록 속도 타원은 납작해지고, 힘 타원은 팔 방향으로 끝없이 길어진다. 8.3절의 "무거운 방향"과 8.9절의 "토크 없이 버티는 방향"이 같은 방향이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=4330">1:12:10 1 N 예제</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=4362">1:12:42 1000 N 예제</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=4427">1:13:47 답은 0</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=4458">1:14:18 무거운 것은 팔을 펴고 든다</a></p>
+<h2>8.10 힘이 걸리는 점 옮기기</h2>
+<p>8.4절에서는 속도를 재는 점을 W에서 E로 옮겼다. 힘도 같다. 공구 끝 E에 걸리는 힘을 손목 W에서는 어떻게 버티는지 보자.</p>
+<p>8.4절의 J<sub>E</sub> = [[I, −p̂], [0, I]] J<sub>W</sub>를 τ = J<sub>E</sub>ᵀ F<sub>E</sub>에 넣는다. 전치하면 (−p̂)ᵀ = p̂가 왼쪽 아래로 내려간다.</p>
+<div class="math" data-tex="\tau = J_E^{T} F_E = J_W^{T} \underbrace{\begin{bmatrix} I &amp; 0 \\ \hat p_{WE} &amp; I \end{bmatrix} F_E}_{F_W}"></div>
+<p>아래 묶음으로 표시한 곱이 W에서 본 힘 F<sub>W</sub>다. 덩어리를 풀어 쓰면 다음과 같다.</p>
+<div class="math" data-tex="f_W = f_E,\qquad n_W = n_E + p_{WE} \times f_E"></div>
+<p>힘은 그대로 옮겨 오고, 지렛대 p<sub>WE</sub>만큼 모멘트가 더해진다. 속도에서는 선속도에 ω × p가 더해졌고, 힘에서는 모멘트에 p × f가 더해진다. 같은 행렬의 전치라서 더해지는 자리가 서로 바뀌었다.</p>
+<figure data-fig="fig8_9"><div class="fig-title">공구 끝의 힘 = 손목에서 같은 힘 + 지렛대 모멘트</div><div class="fig-body"></div><div class="fig-note">(가) 손끝 E가 +y 방향으로 2 N을 준다. (나) 손목 W에서 보면 같은 2 N과 반시계 방향 모멘트 10 N·cm다. 두 경우의 관절 토크는 같다.</div><figcaption>그림 8-9 · 3관절 팔 θ = (0°, 90°, −90°)의 손끝 힘을 손목으로 옮기기</figcaption></figure>
+<h3>숫자로 확인</h3>
+<p>8.4절의 3관절 팔에서 손끝 E가 +y 방향으로 f<sub>E</sub> = (0, 2) N을 준다. p<sub>WE</sub> = (5, 0) cm다. 평면의 외적은 숫자 하나라서 n<sub>W</sub> = p<sub>x</sub> f<sub>y</sub> − p<sub>y</sub> f<sub>x</sub> = 5 × 2 = 10 N·cm다.</p>
+<div class="math" data-tex="\tau = J_W^{T}\begin{bmatrix} 0 \\ 2 \\ 10 \end{bmatrix} = \begin{bmatrix} -7 &amp; 8 &amp; 1 \\ -7 &amp; 0 &amp; 1 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}\begin{bmatrix} 0 \\ 2 \\ 10 \end{bmatrix} = \begin{bmatrix} 26 \\ 10 \\ 10 \end{bmatrix}\ \text{N}\cdot\text{cm}"></div>
+<p>J<sub>E</sub>ᵀ에 (0, 2, 0)을 곱해도 (13 × 2, 5 × 2, 5 × 2) = (26, 10, 10)으로 같다. 셋째 관절은 W를 지나는 축이라, 손목에 걸리는 모멘트 10을 혼자 낸다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 드라이버를 쥐고 드라이버 방향으로 곧게 누르면 손목에 모멘트가 생길까?</p>
+</blockquote>
+<p>생기지 않는다. 힘 f가 p<sub>WE</sub>와 나란하면 p × f = 0이다.</p>
+<p>비스듬히 누르면 손목이 비틀린다. 나사를 곧게 눌러야 손목이 편한 까닭이다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 힘과 모멘트도 화살표 두 개라서, 좌표계를 바꿀 때는 7.7절처럼 [[R, 0], [0, R]]을 곱한다. 손목의 힘 센서는 보통 손 좌표계의 숫자로 힘을 잰다. Jᵀ를 곱하기 전에 F를 J와 같은 좌표계로 돌려 놓는다.</p>
+</blockquote>
+<p>이것으로 8강과 중간고사 범위가 끝난다. 9장은 초청 강의로 로봇의 카메라를 다룬다. 10장부터는 손끝이 지나갈 길(궤적)을 짜고, 힘과 운동의 관계(동역학)로 넘어간다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/XrNdB4k5kUk?t=2557">42:37 점을 옮기는 행렬</a> · <a href="https://youtu.be/XrNdB4k5kUk?t=3639">1:00:39 같은 행렬의 전치</a></p>
+<h2>8.11 연습문제</h2>
+<p>길이는 cm, 힘은 N, 토크는 N·cm로 계산한다. 답은 문제 8개 아래에 있다. 답을 보기 전에 손으로 끝까지 풀어 본다.</p>
+<ol>
+<li>스탠퍼드 팔의 손목이 θ₅ = 10°에 있다. 손을 축 n = z₅ × z₄로 0.5 rad/s 돌리려면 관절 4와 관절 6은 얼마나 빨리 돌아야 하나? θ₅ = 0°이면 어떻게 되나?</li>
+<li>3관절 평면 팔(8, 7, 5 cm)의 줄인 자코비안(v<sub>x</sub>, v<sub>y</sub>, ω<sub>z</sub>)을 생각한다.<ol>
+<li>θ = (0°, 90°, −90°)에서 8.2절의 J로 det J를 직접 계산하라.</li>
+<li>J<sub>E</sub> = S J<sub>W</sub>(8.4절)를 써서 det J = 56 sin θ₂인 까닭을 설명하라.</li>
+<li>이 팔의 특이점은 어떤 자세인가?</li>
+</ol>
+</li>
+<li>종이 팔이 θ₂ = 2°에 있다. 링크 1의 좌표계 {1}로 손끝 속도 (ẋ₁, ẏ₁) = (0.1, 1) cm/s를 원한다. 8.3절의 어림식으로 θ̇를 구하라. θ̇₁ 가운데 ẋ₁ 때문에 생긴 몫은 얼마인가?</li>
+<li>3관절 팔이 θ = (30°, 60°, −30°)에 있다.<ol>
+<li>둘째 관절, W(셋째 관절), E(손끝)의 위치를 구하라.</li>
+<li>J<sub>W</sub>를 만들고, J<sub>E</sub> = S J<sub>W</sub>로 J<sub>E</sub>를 구하라.</li>
+<li>손끝으로 바로 만든 명시적 형태(7장)와 같은지 확인하라.</li>
+</ol>
+</li>
+<li>종이 팔이 θ = (30°, 60°)에 있고 손끝은 (8.66, 13)이다. 목표 x<sub>d</sub> = (8.0, 13.5)로 resolved-rate 한 걸음을 간다.<ol>
+<li>δx와 δθ = J⁻¹δx를 구하라.</li>
+<li>새 자세의 손끝은 어디이고, 목표와 얼마나 떨어졌나?</li>
+<li>같은 목표로 한 걸음 더 가면 얼마나 가까워지나?</li>
+</ol>
+</li>
+<li>종이 팔이 θ = (0°, 90°)에 있다. J = [[−8, −8], [10, 0]]이다(6장 문제 2).<ol>
+<li>손끝이 F = (2, 0) N을 줄 때와 F = (0, 2) N을 줄 때 τ를 구하라.</li>
+<li>θ̇ = (0.5, −0.5) rad/s일 때 ẋ를 구하라. F = (0, 2) N에서 τᵀθ̇와 Fᵀẋ가 같은지 확인하라.</li>
+</ol>
+</li>
+<li>종이 팔을 θ = (90°, 0°)로 똑바로 세웠다. 손끝이 아래로 50 N을 줄 때와 옆(+x)으로 5 N을 줄 때 τ를 구하라. 두 결과를 특이점으로 설명하라.</li>
+<li>손목점 W에서 p<sub>WE</sub> = (9, 0, 0) cm인 곳에 드라이버 끝 E가 있다. 끝이 아래로 f<sub>E</sub> = (0, 0, −10) N을 준다. 손목이 내야 할 힘 f<sub>W</sub>와 모멘트 n<sub>W</sub>는? 같은 10 N을 드라이버 방향 f<sub>E</sub> = (10, 0, 0) N으로 주면?</li>
+</ol>
+<h3>답</h3>
+<p><strong>답 1.</strong> 관절 6은 0.5/sin 10° = <strong>2.88 rad/s</strong>, 관절 4는 반대 방향으로 0.5 × cos 10°/sin 10° = <strong>2.84 rad/s</strong>로 돌아야 한다. 손을 0.5 rad/s로 돌리는데 관절은 그 여섯 배쯤 빨리 돈다.</p>
+<p>θ₅ = 0°이면 sin θ₅ = 0이라 어떤 관절 속도로도 안 된다. z₄ = z₆이 되어 축 n 방향의 회전을 만들 관절이 없다.</p>
+<p><strong>답 2.</strong></p>
+<ol>
+<li>첫 열로 펼친다. det J = −7 × (5 × 1 − 5 × 1) − 13 × (−7 × 1 − 0 × 1) + 1 × (−7 × 5 − 0 × 5) = 0 + 91 − 35 = <strong>56</strong>이다. 56 sin 90° = 56과 맞는다.</li>
+<li>
+<p>S = [[1, 0, −p<sub>y</sub>], [0, 1, p<sub>x</sub>], [0, 0, 1]]은 대각선이 모두 1인 삼각 행렬이라 det S = 1이다. 그러니 det J<sub>E</sub> = det J<sub>W</sub>다.</p>
+<p>J<sub>W</sub>의 셋째 열은 (0, 0, 1)이라 셋째 열로 펼치면 왼쪽 위 2 × 2만 남는다. 그것은 링크 8 cm, 7 cm인 2관절 팔의 J라서 det = 8 × 7 × sin θ₂다.</p>
+</li>
+<li>
+<p>θ₂ = 0°, 180°다. θ₃와 셋째 링크 길이는 상관없다. 손 방향까지 정하면 W의 자리가 정해지고, W를 놓는 일은 앞의 두 관절이 맡기 때문이다.</p>
+</li>
+</ol>
+<p><strong>답 3.</strong> ε = 2° = 0.0349 rad이다.</p>
+<ul>
+<li>θ̇₁ ≈ 0.1/(10 × 0.0349) + 1/10 = 0.286 + 0.100 = <strong>0.39 rad/s</strong></li>
+<li>θ̇₂ ≈ −9 × 0.1/(40 × 0.0349) − 1/10 = −0.645 − 0.100 = <strong>−0.74 rad/s</strong></li>
+</ul>
+<p>어림하지 않고 ¹J⁻¹을 계산해도 (0.386, −0.745)로 거의 같다. θ̇₁의 0.39 가운데 0.29가 ẋ₁ 몫이다. 요청의 10분의 1밖에 안 되는 팔 방향 몫이 관절 속도의 대부분을 차지한다.</p>
+<p><strong>답 4.</strong></p>
+<ol>
+<li>
+<p>둘째 관절 = 8(cos 30°, sin 30°) = (6.93, 4)다. W = (6.93, 4) + 7(cos 90°, sin 90°) = (6.93, 11)이다. 셋째 링크 방향은 30° + 60° − 30° = 60°라서 E = (6.93, 11) + 5(cos 60°, sin 60°) = <b>(9.43, 15.33)</b>이다.</p>
+<p>p<sub>WE</sub> = (2.5, 4.33)이다.</p>
+</li>
+<li>
+<p>J<sub>W</sub>의 열은 z × (W − 관절)이다. 열 1 = z × (6.93, 11) = (−11, 6.93), 열 2 = z × (0, 7) = (−7, 0), 열 3의 위 칸은 0이다. S의 오른쪽 열은 (−p<sub>y</sub>, p<sub>x</sub>, 1) = (−4.33, 2.5, 1)이다.</p>
+</li>
+</ol>
+<div class="math" data-tex="J_W = \begin{bmatrix} -11 &amp; -7 &amp; 0 \\ 6.93 &amp; 0 &amp; 0 \\ 1 &amp; 1 &amp; 1 \end{bmatrix}"></div>
+<div class="math" data-tex="J_E = S J_W = \begin{bmatrix} -15.33 &amp; -11.33 &amp; -4.33 \\ 9.43 &amp; 2.5 &amp; 2.5 \\ 1 &amp; 1 &amp; 1 \end{bmatrix}"></div>
+<ol start="3">
+<li>명시적 형태로는 열 i = z × (E − 관절 i)다. E − (0, 0) = (9.43, 15.33) → (−15.33, 9.43), E − (6.93, 4) = (2.5, 11.33) → (−11.33, 2.5), E − W = (2.5, 4.33) → (−4.33, 2.5)다. 같다.</li>
+</ol>
+<p><strong>답 5.</strong></p>
+<ol>
+<li>δx = (8.0 − 8.66, 13.5 − 13) = (−0.66, 0.5)다. det J = 69.28이고 J⁻¹ = (1/69.28) [[0, 8], [−8.66, −13]]이다(6장 문제 3). δθ₁ = 8 × 0.5/69.28 = <strong>0.058 rad</strong>(3.31°), δθ₂ = (−8.66 × (−0.66) − 13 × 0.5)/69.28 = <strong>−0.011 rad</strong>(−0.65°)다.</li>
+<li>새 자세는 (33.31°, 59.35°)다. 순기구학으로 손끝은 (7.986, 13.483)이고, 목표와 0.022 cm 떨어졌다. 0.83 cm를 가려다 0.02 cm만 남았다.</li>
+<li>한 걸음 더 가면 0.00005 cm까지 줄어든다. 남은 거리가 작을수록 J의 어림이 정확해져서, 걸음마다 훨씬 빠르게 줄어든다.</li>
+</ol>
+<p><strong>답 6.</strong></p>
+<ol>
+<li>
+<p>Jᵀ = [[−8, 10], [−8, 0]]이다. F = (2, 0)이면 τ = <strong>(−16, −16) N·cm</strong>, F = (0, 2)이면 τ = <strong>(20, 0) N·cm</strong>다.</p>
+<p>손끝은 (10, 8)이고 팔뚝은 y 방향이다. (0, 2)는 팔뚝을 따라 팔꿈치를 지나서 τ₂ = 0이고, 어깨에는 지렛대 10 cm × 2 N = 20이 걸린다.</p>
+</li>
+<li>
+<p>ẋ = J θ̇ = (−8 × 0.5 − 8 × (−0.5), 10 × 0.5 + 0) = (0, 5) cm/s다. Fᵀẋ = 2 × 5 = 10이고, τᵀθ̇ = 20 × 0.5 + 0 × (−0.5) = 10이다. 둘 다 10 N·cm/s로 같다.</p>
+</li>
+</ol>
+<p><strong>답 7.</strong> s₁ = 1, c₁ = 0, s₁₂ = 1, c₁₂ = 0이라 J = [[−18, −8], [0, 0]], Jᵀ = [[−18, 0], [−8, 0]]이다.</p>
+<ul>
+<li>아래로 50 N, F = (0, −50): τ = <b>(0, 0)</b>이다. 손끝은 y 방향(팔 방향)으로 움직일 수 없는 특이 자세이고, 그 방향 힘은 구조가 다 받는다.</li>
+<li>옆으로 5 N, F = (5, 0): τ = <strong>(−90, −40) N·cm</strong>다. x 방향은 손끝이 움직일 수 있는 방향이라, 지렛대 18 cm와 8 cm가 그대로 걸린다.</li>
+</ul>
+<p><strong>답 8.</strong> 힘은 그대로 f<sub>W</sub> = <strong>(0, 0, −10) N</strong>이다. 모멘트는 n<sub>W</sub> = p<sub>WE</sub> × f<sub>E</sub> = (0 × (−10) − 0 × 0, 0 × 0 − 9 × (−10), 9 × 0 − 0 × 0) = <strong>(0, 90, 0) N·cm</strong>다. 9 cm 지렛대에 10 N이 걸려 손목이 y축으로 90 N·cm만큼 비틀린다.</p>
+<p>드라이버 방향으로 주면 f<sub>E</sub>가 p<sub>WE</sub>와 나란해서 n<sub>W</sub> = 0이다. 손목은 힘 (10, 0, 0) N만 버티면 된다.</p>
+<h3>파이썬으로 확인</h3>
+<p>파이썬(numpy)이 있으면 아래를 붙여 넣어 돌려 본다. 주석의 값이 그대로 나온다. 스탠퍼드 팔은 7장의 DH 표를 그대로 쓴다.</p>
+<pre><code class="language-python">import numpy as np
+
+np.set_printoptions(precision=2, suppress=True)
+D = np.pi / 180
+
+def hat(a):
+    &quot;&quot;&quot;외적 연산자: hat(a) @ b == np.cross(a, b).&quot;&quot;&quot;
+    return np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
+
+def fk(q):
+    &quot;&quot;&quot;종이 팔의 손끝 (q는 라디안).&quot;&quot;&quot;
+    return np.array([10 * np.cos(q[0]) + 8 * np.cos(q[0] + q[1]),
+                     10 * np.sin(q[0]) + 8 * np.sin(q[0] + q[1])])
+
+def J2(q, l1=10, l2=8):
+    &quot;&quot;&quot;2관절 평면 팔의 자코비안 (q는 라디안).&quot;&quot;&quot;
+    s1, c1, s12, c12 = np.sin(q[0]), np.cos(q[0]), np.sin(q[0] + q[1]), np.cos(q[0] + q[1])
+    return np.array([[-l1 * s1 - l2 * s12, -l2 * s12], [l1 * c1 + l2 * c12, l2 * c12]])
+
+def ik(x):
+    &quot;&quot;&quot;종이 팔의 역기구학 (θ2 &gt; 0 쪽).&quot;&quot;&quot;
+    t2 = np.arccos(np.clip((x @ x - 164) / 160, -1, 1))
+    return np.array([np.arctan2(x[1], x[0]) - np.arctan2(8 * np.sin(t2), 10 + 8 * np.cos(t2)), t2])
+
+def planar3(t, l=(8, 7, 5)):
+    &quot;&quot;&quot;3관절 평면 팔: [관절 1, 관절 2, 관절 3 = W, 손끝 E] 위치 (t는 도).&quot;&quot;&quot;
+    a, pts = np.cumsum(np.radians(t)), [np.zeros(2)]
+    for li, ai in zip(l, a):
+        pts.append(pts[-1] + li * np.array([np.cos(ai), np.sin(ai)]))
+    return pts
+
+def J_planar(joints, point):
+    &quot;&quot;&quot;줄인 자코비안 (vx, vy, ωz): 열 = z × (point − 관절), 맨 아래는 1.&quot;&quot;&quot;
+    return np.array([[-(point - o)[1], (point - o)[0], 1] for o in joints]).T
+
+def shift(p):
+    &quot;&quot;&quot;평면에서 점을 p만큼 옮기는 행렬 [[I, -p^], [0, I]].&quot;&quot;&quot;
+    return np.array([[1, 0, -p[1]], [0, 1, p[0]], [0, 0, 1]])
+
+# 8.1 손목: 손을 축 n으로 1 rad/s 돌릴 때 관절 6, 관절 4의 빠르기
+for t5 in (30, 10, 3, 1):
+    print(t5, round(1 / np.sin(t5 * D), 2), round(np.cos(t5 * D) / np.sin(t5 * D), 2))
+# 30 2.0 1.73 / 10 5.76 5.67 / 3 19.11 19.08 / 1 57.3 57.29
+
+# 8.2 스탠퍼드 팔 (7장의 DH 표, 점 W): θ5 = 0이면 4열 = 6열, 계수 5
+def dh(alpha, a, d, theta):
+    ca, sa, ct, st = np.cos(alpha * D), np.sin(alpha * D), np.cos(theta * D), np.sin(theta * D)
+    return np.array([[ct, -st, 0, a], [st * ca, ct * ca, -sa, -sa * d],
+                     [st * sa, ct * sa, ca, ca * d], [0, 0, 0, 1]])
+
+def stanford_J(q, d2=15):
+    t1, t2, d3, t4, t5, t6 = q
+    rows = [(0, 0, 0, t1), (-90, 0, d2, t2), (90, 0, d3, 0), (0, 0, 0, t4), (-90, 0, 0, t5), (90, 0, 0, t6)]
+    T, Ts = np.eye(4), []
+    for r in rows:
+        T = T @ dh(*r)
+        Ts.append(T)
+    W, cols = Ts[-1][:3, 3], []
+    for kind, T in zip('RRPRRR', Ts):
+        z, o = T[:3, 2], T[:3, 3]
+        cols.append(np.r_[np.cross(z, W - o), z] if kind == 'R' else np.r_[z, 0, 0, 0])
+    return np.array(cols).T
+
+Js = stanford_J([30, 50, 40, 20, 0, 10])
+print(np.allclose(Js[:, 3], Js[:, 5]), np.linalg.matrix_rank(Js))   # True 5
+# 3관절 팔의 줄인 자코비안: det = 56 sin θ2 (θ3와 상관없다)
+P = planar3((0, 90, -90))
+print(J_planar(P[:3], P[3]))                # [[-7. -7. -0.] [13.  5.  5.] [ 1.  1.  1.]]
+print([float(round(np.linalg.det(J_planar(planar3(t)[:3], planar3(t)[3])), 2)) for t in [(0, 90, -90), (20, 45, 77), (10, 0, 40)]])
+# [56.0, 39.6, 0.0]
+
+# 8.3 θ2 = ε = 2°: 정확한 ¹J⁻¹과 어림식, 문제 3
+e = 2 * D
+J1 = np.array([[-8 * np.sin(e), -8 * np.sin(e)], [10 + 8 * np.cos(e), 8 * np.cos(e)]])
+print(np.linalg.inv(J1))                    # [[ 2.86  0.1 ] [-6.45 -0.1 ]]
+print(np.array([[1 / (10 * e), 0.1], [-9 / (40 * e), -0.1]]))   # [[ 2.86  0.1 ] [-6.45 -0.1 ]]
+print(np.linalg.solve(J1, [0.1, 1]))        # [ 0.39 -0.74]
+
+# 8.4 점 옮기기 J_E = S J_W (그림 8-3, 문제 4)
+for t in [(0, 90, -90), (30, 60, -30)]:
+    P = planar3(t)
+    JW = J_planar(P[:3], P[2])
+    JW[:2, 2] = 0                           # 셋째 관절은 W를 지난다
+    JE = shift(P[3] - P[2]) @ JW
+    print(JW, JE, np.allclose(JE, J_planar(P[:3], P[3])))
+# [[-7. -7.  0.] [ 8.  0.  0.] [ 1.  1.  1.]] [[-7. -7.  0.] [13.  5.  5.] [ 1.  1.  1.]] True
+# [[-11.    -7.     0.  ] [  6.93   0.     0.  ] [  1.     1.     1.  ]]
+# [[-15.33 -11.33  -4.33] [  9.43   2.5    2.5 ] [  1.     1.     1.  ]] True
+JW0 = np.array([[-7, -7, 0], [8, 0, 0], [1, 1, 1.0]])
+print(JW0 @ [0.5, 0.5, 0], shift([5, 0]) @ JW0 @ [0.5, 0.5, 0])   # [-7.  4.  1.] [-7.  9.  1.]
+# 좌표계: 모자는 앞뒤로 곱해 옮긴다. hat(R p) = R hat(p) R^T
+R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1.0]]) @ np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0.0]])
+p = np.array([0, 0, 7.0])
+print(np.allclose(hat(R @ p), R @ hat(p) @ R.T), np.allclose(hat(R @ p), R @ hat(p)))   # True False
+
+# 8.5 resolved-rate 걸음 (그림 8-4): 속도만 더하기 vs 다시 재기
+def walk(N, remeasure, A=np.array([14.0, 4]), B=np.array([-2.0, 12]), T=8.0):
+    q = ik(A)
+    for k in range(N):
+        dx = A + (B - A) * (k + 1) / N - fk(q) if remeasure else (B - A) / N
+        q = q + np.linalg.solve(J2(q), dx)
+    return float(round(np.linalg.norm(fk(q) - B), 3))
+print([(N, walk(N, False), walk(N, True)) for N in (8, 32)])   # [(8, 2.415, 0.255), (32, 0.556, 0.016)]
+# 문제 5: 목표를 고정하고 걸음을 되풀이한다
+q, xd = np.array([30, 60]) * D, np.array([8.0, 13.5])
+for step in range(2):
+    q = q + np.linalg.solve(J2(q), xd - fk(q))
+    print(q / D, fk(q), f'{np.linalg.norm(xd - fk(q)):.2g}')
+# [33.31 59.35] [ 7.99 13.48] 0.022 / [33.42 59.07] [ 8.  13.5] 5e-05
+
+# 8.6 경계로 가는 직선 (y = 5, x = 10 → 17.29, 1 cm/s), λ = 0
+for t in (0, 7, 7.29):
+    q = ik(np.array([10 + t, 5.0]))
+    print(t, round(q[1] / D, 2), np.linalg.solve(J2(q), [1, 0]))
+# 0 104.11 [ 0.01 -0.13] / 7 20.36 [ 0.25 -0.61] / 7.29 1.51 [ 3.62 -8.18]
+# 감쇠 최소제곱: 어느 자세에서도 관절 속도 ≤ |ẋ|/(2λ)
+lam = 1.0
+gain = [np.linalg.norm(J.T @ np.linalg.inv(J @ J.T + lam**2 * np.eye(2)), 2)
+        for J in (J2(np.array([0, t2]) * D) for t2 in np.linspace(0.01, 179.99, 20000))]
+print(round(max(gain), 3))                  # 0.5
+
+# 8.7 문: v = ω × p, τ = p × F, J = -hat(p)이면 τ = J^T F
+p, w, F = np.array([0.7, 0, 0]), np.array([0, 0, 0.5]), np.array([0, 20.0, 0])
+print(np.cross(w, p), np.cross(p, F), (-hat(p)).T @ F)   # [0.   0.35 0.  ] [ 0.  0. 14.] [ 0.  0. 14.]
+
+# 8.8 τ = J^T F와 일률 τ·θ̇ = F·ẋ
+J = J2(np.array([30, 60]) * D)
+F, qd = np.array([-1.0, 0]), np.array([0.5, 1.0])
+print(J.T @ F, (J.T @ F) @ qd, F @ (J @ qd))   # [13.  8.] 14.5 14.5
+
+# 8.9 강의 예제 (1 m, 1 m), 계란, 모멘트만 줄 때
+print(J2(np.array([0, 60]) * D, 1, 1).T @ [0, -1])        # [-1.5 -0.5]
+print(J2(np.array([90, 0]) * D, 1, 1).T @ [0, -1000])     # [-0. -0.]
+print(J.T @ [0, 1], np.r_[J, [[1, 1]]].T @ [0, 0, 2])    # [8.66 0.  ] [2. 2.]
+# 속도 타원과 힘 타원 (θ = 20°, 30°): 같은 축, 거꾸로인 길이
+S = np.linalg.svd(J2(np.array([20, 30]) * D), compute_uv=False)
+print(S, 10 / S)                            # [19.03  2.1 ] [0.53 4.76]
+
+# 8.10 힘이 걸리는 점 옮기기: J_W^T [f; p × f] = J_E^T [f; 0]
+f = np.array([0, 2.0])
+nW = 5 * f[1] - 0 * f[0]
+print(nW, JW0.T @ np.r_[f, nW], (shift([5, 0]) @ JW0).T @ np.r_[f, 0])   # 10.0 [26. 10. 10.] [26. 10. 10.]
+
+# 문제 1, 6, 7, 8
+print(round(0.5 / np.sin(10 * D), 2), round(0.5 * np.cos(10 * D) / np.sin(10 * D), 2))   # 2.88 2.84
+J = J2(np.array([0, 90]) * D)
+print(J.T @ [2, 0], J.T @ [0, 2], J @ [0.5, -0.5], (J.T @ [0, 2]) @ [0.5, -0.5])   # [-16. -16.] [20.  0.] [0. 5.] 10.0
+J = J2(np.array([90, 0]) * D)
+print(J.T @ [0, -50], J.T @ [5, 0])         # [-0. -0.] [-90. -40.]
+print(np.cross([9, 0, 0], [0, 0, -10]), np.cross([9, 0, 0], [10, 0, 0]))   # [ 0 90  0] [0 0 0]
+</code></pre>
+<h3>스탠퍼드 숙제</h3>
+<p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 4에서 1번은 이 장으로 풀 수 있다. (a)는 7장의 기본 자코비안이다.</p>
+<p>(b)는 손 좌표계로 잰 힘을 [[R, 0], [0, R]]로 돌린 뒤 τ = JᵀF를 쓴다(8.8절, 8.10절의 알아 두기). 손끝에 걸린 힘을 "버틴다"는 문제라 부호에 주의한다.</p>
+<p>(c)는 드라이버 끝에서 주는 힘과 모멘트를 묻는다. 8.10절의 f<sub>W</sub> = f<sub>E</sub>, n<sub>W</sub> = n<sub>E</sub> + p × f<sub>E</sub>를 거꾸로 쓰면 된다.</p>
+<p>2번(닿는 영역과 역기구학 답의 개수)은 4장과 5장의 보충 절로, 3번(3차식 궤적)은 10장으로 푼다. 풀이는 같은 페이지의 Solution 4에 있다.</p>
+<p>Homework 3의 2번 (c)와 3번 (e)(f)는 7장에서 풀었다. 8.2절처럼 det를 인수로 나누고, 인수마다 그 자세의 팔을 그려 보며 다시 확인하면 좋다.</p>
+<p>다 풀었으면 <a href="https://youtu.be/XrNdB4k5kUk">8강 영상</a>을 한 번 본다.</p>
+<div class="chapter-nav"><a href="ch7.html">← 7장. 관절 하나에 열 하나: 자코비안 바로 읽기와 특이점</a><a href="ch9.html">9장. 로봇의 눈: 카메라로 재고, 찾고, 따라가기 →</a></div>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+<script src="assets/figs/ch8.js"></script>
+<script>FigKit.renderAll();</script>
+</body>
+</html>
