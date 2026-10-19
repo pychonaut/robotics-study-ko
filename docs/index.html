@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>종이 팔로 배우는 로봇공학 입문</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch1.html">1장</a><a href="ch2.html">2장</a></header>
+<main>
+<h1>종이 팔로 배우는 로봇공학 입문</h1>
+<p class="lead">스탠퍼드 대학 CS223A 「로봇공학 입문」(Oussama Khatib 교수, 2008년, 16강)을 혼자 공부하려고 한국어로 새로 쓴 교재다. 책상 위 종이 팔 하나를 예로 들어, 그림과 직접 움직여 보는 그림으로 설명한다.</p>
+
+<p><a class="card" href="ch1.html"><b>1장. 로봇 팔은 무엇을 풀어야 하나</b><span>강의 1강 · 순기구학, 역기구학, 자코비안, 동역학, 제어를 수식 없이 그림으로</span></a></p>
+<p><a class="card" href="ch2.html"><b>2장. 위치와 방향을 숫자로 적기</b><span>강의 2강 · 자유도, 회전행렬, 동차변환 · 연습문제와 파이썬 확인 코드</span></a></p>
+<p>3장(강의 3강)부터는 이어서 쓰는 중이다.</p>
+<h2>이 교재로 공부하는 법</h2>
+<ol>
+<li>장을 먼저 읽는다. 슬라이더가 있는 그림은 직접 움직여 본다.</li>
+<li>절마다 있는 "영상에서 보기" 링크로 강의의 그 장면을 본다. 강의는 영어이고 유튜브에서 영어 자막을 켤 수 있다.</li>
+<li>"잠깐, 생각해 보기"에서 멈추고 답을 적어 본다.</li>
+<li>장 끝 문제를 손으로 푼다.</li>
+</ol>
+<h2>준비물</h2>
+<table>
+<thead>
+<tr>
+<th>필요한 것</th>
+<th>처음 나오는 곳</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>고등학교 삼각함수 (sin, cos)</td>
+<td>1장</td>
+</tr>
+<tr>
+<td>벡터와 내적</td>
+<td>2장 (본문에서 설명한다)</td>
+</tr>
+<tr>
+<td>행렬 곱하기</td>
+<td>2장 (본문에서 설명한다)</td>
+</tr>
+<tr>
+<td>파이썬 (없어도 된다)</td>
+<td>2장 끝 확인 코드</td>
+</tr>
+</tbody>
+</table>
+<h2>강의와 자료</h2>
+<ul>
+<li>강의 영상: <a href="https://www.youtube.com/playlist?list=PL65CC0384A1798ADF">유튜브 재생목록</a></li>
+<li>전사본, 유인물, 숙제와 풀이: <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere CS223A</a></li>
+<li>강의 자료는 스탠퍼드가 Creative Commons Attribution 3.0으로 공개했다. 이 교재는 그 강의를 듣고 한국어로 새로 쓴 독학 정리이며, 스탠퍼드의 공식 자료가 아니다.</li>
+</ul>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+</body>
+</html>
