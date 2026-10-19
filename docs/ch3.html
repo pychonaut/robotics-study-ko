@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3장. 변환을 잇고, 방향을 세 각도로 적기</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch2.html">← 이전 장</a><a href="ch4.html">다음 장 →</a></header>
+<main>
+<h1>3장. 변환을 잇고, 방향을 세 각도로 적기</h1>
+<!-- card: 강의 3강 · 변환 곱하기와 변환 고리, 오일러 각과 고정 각, 짐벌 잠금, 오일러 파라미터 · 연습문제와 파이썬 확인 코드 -->
+
+<p class="lead">동차변환 여러 개를 곱해서 잇는 법과, 변환의 고리에서 모르는 변환 하나를 꺼내는 법을 배운다. 그다음 손끝의 방향을 숫자 몇 개로 적는 네 가지 방법을 비교한다. 세 각도는 편하지만 어떤 자세에서 고장 나고, 네 숫자로 그것을 피한다. 강의 3강(77분)에 해당한다.</p>
+
+<h2>3.1 동차변환을 읽는 세 가지 방법</h2>
+<p>2장에서 만든 동차변환 <sup>A</sup>T<sub>B</sub>는 같은 숫자를 세 가지 뜻으로 읽을 수 있다. 3강은 이것을 다시 정리하며 시작한다.</p>
+<table>
+<thead>
+<tr>
+<th>읽는 법</th>
+<th>뜻</th>
+<th>식</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>좌표계 기술 (description)</td>
+<td>{B}가 {A}에서 어느 방향으로, 어디에 있나</td>
+<td><sup>A</sup>R<sub>B</sub>와 <sup>A</sup>P<sub>B org</sub>를 한 행렬에 담는다</td>
+</tr>
+<tr>
+<td>매핑 (mapping)</td>
+<td>같은 점을 {B}의 숫자에서 {A}의 숫자로 바꾼다</td>
+<td><sup>A</sup>P = <sup>A</sup>T<sub>B</sub> <sup>B</sup>P</td>
+</tr>
+<tr>
+<td>연산자 (operator)</td>
+<td>한 좌표계 안에서 점을 돌리고 옮긴다</td>
+<td>P₂ = T P₁</td>
+</tr>
+</tbody>
+</table>
+<p>세 가지 모두 계산은 행렬 곱 하나다. 문제를 풀 때는 "지금 점이 움직이나, 보는 좌표계가 바뀌나"만 먼저 정한다(2.9절).</p>
+<p>이 장은 첫 번째 읽기를 많이 쓴다. 행렬 하나가 "좌표계 하나가 어디에 어느 방향으로 있는지"를 담는다는 읽기다. 좌표계가 여러 개면 그 관계를 행렬 곱으로 적을 수 있다.</p>
+<p>강의의 처음 12분은 1991년에 나온 고무 손가락 영상과 그 토론이다. 공기압으로 움직여 가볍고 부딪혀도 안전하지만, 빠르고 정확하게 움직이기는 어렵다. 사람 곁에서 일하는 로봇의 안전은 뒤의 강의에서 다시 나온다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=41">00:41 공기압 고무 관절</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=740">12:20 동차변환의 세 가지 뜻</a></p>
+<h2>3.2 변환 잇기: 곱하기만 하면 된다</h2>
+<p>좌표계가 셋 있다. {A}에서 본 {B}를 알고, {B}에서 본 {C}를 안다. 그러면 {A}에서 본 {C}는 어떻게 구할까?</p>
+<h3>한 칸씩 건너간다</h3>
+<p>점 P를 {C}의 숫자로 안다고 하자. 먼저 {B}의 숫자로 바꾸고, 다시 {A}의 숫자로 바꾼다. 2장의 매핑을 두 번 하는 것이다.</p>
+<div class="math" data-tex="{}^{B}P = {}^{B}_{C}T\,{}^{C}P,\qquad
+{}^{A}P = {}^{A}_{B}T\,{}^{B}P = {}^{A}_{B}T\,{}^{B}_{C}T\,{}^{C}P"></div>
+<p>P가 어떤 점이든 이 식이 맞는다. 그러니 두 행렬의 곱이 곧 {A}에서 본 {C}다.</p>
+<div class="math" data-tex="{}^{A}_{C}T = {}^{A}_{B}T\;{}^{B}_{C}T"></div>
+<p>가운데 B가 아래와 위에서 만나 지워진다고 보면 외우기 쉽다. 2.8절 끝에서 미리 본 식이다.</p>
+<blockquote>
+<p><strong>수학 더하기: 행렬 × 행렬.</strong> 두 행렬을 곱하면, 답의 j번째 열은 "왼쪽 행렬 × 오른쪽 행렬의 j번째 열"이다. 2.5절의 행렬 × 벡터를 열마다 한 번씩 하면 된다. 순서를 바꾸면 답이 대개 달라져서, AB와 BA는 다른 행렬이다.</p>
+</blockquote>
+<h3>곱 안에 무엇이 들어 있나</h3>
+<p>동차변환을 회전 칸과 원점 칸으로 나눠서 곱하면 이렇게 된다.</p>
+<div class="math" data-tex="{}^{A}_{C}T = \begin{bmatrix} {}^{A}_{B}R\;{}^{B}_{C}R &amp; {}^{A}_{B}R\;{}^{B}P_{C\,org} + {}^{A}P_{B\,org} \\ 0\;0\;0 &amp; 1 \end{bmatrix}"></div>
+<ul>
+<li><strong>왼쪽 위</strong>: 회전은 회전끼리 곱한다. {C}의 방향은 {B}의 방향에서 한 번 더 돈 것이다.</li>
+<li><strong>오른쪽 위</strong>: {C}의 원점이다. {B}에서 잰 {C}의 원점을 {A}의 방향으로 돌린 뒤, {B}의 원점을 더한다. 2장의 "돌리고, 더한다"가 그대로 들어 있다.</li>
+</ul>
+<p>곱하기만 하면 이 두 가지가 저절로 계산된다. 이것이 동차변환을 쓰는 가장 큰 이유다.</p>
+<h3>종이 팔로 해 보기</h3>
+<p>종이 팔에 좌표계 셋을 붙인다.</p>
+<ul>
+<li><strong>{0}</strong>: 받침. 책상에 고정되어 있고 원점은 어깨다.</li>
+<li><strong>{1}</strong>: 링크 1에 붙어 함께 돈다. 원점은 어깨, x₁은 링크 1을 따라간다.</li>
+<li><strong>{2}</strong>: 링크 2에 붙어 함께 돈다. 원점은 팔꿈치, x₂는 링크 2를 따라간다.</li>
+</ul>
+<p>이웃한 두 좌표계 사이는 간단하다. {1}은 {0}을 θ₁만큼 돌린 것이다. {2}는 {1}의 x₁ 방향으로 10 cm 간 곳에서 θ₂만큼 돈 것이다.</p>
+<p>평면이라 3×3으로 적고, cos θ₁은 c₁, sin(θ₁ + θ₂)는 s₁₂처럼 줄여 쓴다.</p>
+<div class="math" data-tex="{}^{0}_{1}T = \begin{bmatrix} c_1 &amp; -s_1 &amp; 0 \\ s_1 &amp; c_1 &amp; 0 \\ 0 &amp; 0 &amp; 1 \end{bmatrix},\qquad
+{}^{1}_{2}T = \begin{bmatrix} c_2 &amp; -s_2 &amp; 10 \\ s_2 &amp; c_2 &amp; 0 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<p>두 행렬을 곱하면 {0}에서 본 {2}가 나온다. 왼쪽 위는 θ₁ + θ₂만큼 돈 회전이고, 오른쪽 열 (10c₁, 10s₁)은 팔꿈치의 위치다.</p>
+<div class="math" data-tex="{}^{0}_{2}T = {}^{0}_{1}T\;{}^{1}_{2}T = \begin{bmatrix} c_{12} &amp; -s_{12} &amp; 10c_1 \\ s_{12} &amp; c_{12} &amp; 10s_1 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<p>손끝은 {2}에서 (8, 0)인 점이다. 매핑을 한 번 더 하면 받침에서 본 손끝이 나온다.</p>
+<div class="math" data-tex="{}^{0}_{2}T \begin{bmatrix} 8 \\ 0 \\ 1 \end{bmatrix} = \begin{bmatrix} 10c_1 + 8c_{12} \\ 10s_1 + 8s_{12} \\ 1 \end{bmatrix}"></div>
+<p>1장의 손끝 공식이 행렬 곱에서 저절로 나왔다. 4~5강의 순기구학은 관절이 6개일 때 이 일을 4×4로 하는 것이다.</p>
+<figure data-fig="fig3_1"><div class="fig-title">이웃끼리의 변환을 곱하면 받침에서 본 변환이 된다</div><div class="fig-body"></div><div class="fig-note">회색은 받침 {0}, 파랑은 링크 1의 {1}, 주황은 링크 2의 {2}다. 아래 행렬은 3×3 동차변환이고, 주황 숫자는 원점의 위치다.</div><figcaption>그림 3-1 · 직접 돌려 보기: 종이 팔의 좌표계 {0}, {1}, {2}</figcaption></figure>
+<p>기본값 θ₁ = 30°, θ₂ = 60°에서 <sup>0</sup>T<sub>2</sub>의 회전은 90°이고, 팔꿈치는 (8.66, 5)다. 손끝은 (8.66, 13) cm다. 슬라이더로 해 볼 것 세 가지:</p>
+<ol>
+<li><strong>θ₂만 바꾼다.</strong> <sup>1</sup>T<sub>2</sub>만 바뀌고 <sup>0</sup>T<sub>1</sub>은 그대로다. <sup>0</sup>T<sub>2</sub>의 오른쪽 열(팔꿈치)도 그대로다.</li>
+<li><strong>θ₁만 바꾼다.</strong> 이번에는 <sup>1</sup>T<sub>2</sub>가 그대로다. 링크 2는 링크 1에 대해서는 움직이지 않았기 때문이다.</li>
+<li><strong>θ₁ = 90°, θ₂ = −90°로 둔다.</strong> <sup>0</sup>T<sub>2</sub>의 회전 칸이 단위행렬이 되고, 손끝은 (8, 10) cm다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> <sup>0</sup>T<sub>1</sub> <sup>1</sup>T<sub>2</sub> 대신 순서를 바꿔 <sup>1</sup>T<sub>2</sub> <sup>0</sup>T<sub>1</sub>을 곱하면 무엇이 나올까?</p>
+</blockquote>
+<p>회전 칸은 같다. 평면에서는 θ₁ + θ₂ = θ₂ + θ₁이기 때문이다.</p>
+<p>그런데 오른쪽 열이 θ₁과 상관없이 늘 (10, 0)이 된다. 어깨를 돌려도 팔꿈치가 제자리라는 엉뚱한 답이다. 아래 첨자와 위 첨자가 도미노처럼 이어지게(0←1, 1←2) 곱해야 한다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=1157">19:17 변환 두 개 합치기</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=1316">21:56 곱 안의 회전과 원점</a></p>
+<h2>3.3 변환 고리 풀기</h2>
+<p>로봇 주위의 좌표계들은 고리처럼 이어진다. 고리 안의 변환 중 하나를 모를 때, 나머지로 그것을 구하는 식을 <strong>변환 방정식</strong>(transform equation)이라 한다.</p>
+<h3>상황: 카메라로 본 컵을 팔이 집는다</h3>
+<p>책상 모서리에 좌표계 {W}를 붙인다. 책상을 위에서 본 평면 문제로 생각한다. 아는 것은 세 가지다.</p>
+<ol>
+<li>받침 {0}은 {W}에서 (30, 10) cm에 90° 돌아가 고정되어 있다. → <sup>W</sup>T<sub>0</sub></li>
+<li>카메라 {C}는 {W}에서 (10, 40) cm에 −90° 돌아가 매달려 있다. → <sup>W</sup>T<sub>C</sub></li>
+<li>카메라가 컵 {G}를 자기 기준 (16, 12) cm에서 봤다. 컵의 방향은 카메라와 같다. → <sup>C</sup>T<sub>G</sub></li>
+</ol>
+<p>팔이 알고 싶은 것은 받침에서 본 컵, <sup>0</sup>T<sub>G</sub>다.</p>
+<figure data-fig="fig3_2"><div class="fig-title">고리를 따라 걸으면 모르는 변환이 나온다</div><div class="fig-body"></div><div class="fig-note">화살표는 꼬리 쪽 좌표계에서 머리 쪽 좌표계를 본 변환이다. 실선은 아는 변환(파랑은 카메라가 본 것), 주황 점선은 구할 변환이다.</div><figcaption>그림 3-2 · 책상을 위에서 본 모습: 좌표계 넷이 이루는 고리</figcaption></figure>
+<h3>같은 방향으로 걷는다</h3>
+<p>{0}에서 {G}까지 가는 길은 둘이다. 바로 가는 길(모름)과 {W}, {C}를 거치는 길(앎)이다. 두 길은 같은 {G}에 닿으므로 곱도 같다.</p>
+<div class="math" data-tex="{}^{0}_{G}T = {}^{0}_{W}T\;{}^{W}_{C}T\;{}^{C}_{G}T
+= \left({}^{W}_{0}T\right)^{-1}\;{}^{W}_{C}T\;{}^{C}_{G}T"></div>
+<p>첫 칸은 화살표를 거꾸로 걷는다. 아는 것은 <sup>W</sup>T<sub>0</sub>(W에서 본 받침)인데, 필요한 것은 <sup>0</sup>T<sub>W</sub>(받침에서 본 W)다. 거꾸로 걸을 때는 2.10절의 역변환을 쓴다.</p>
+<p>숫자를 넣어 보자. 90° 회전의 역은 −90° 회전이고, 오른쪽 열은 −Rᵀp = −Rᵀ(30, 10) = (−10, 30)이다.</p>
+<div class="math" data-tex="{}^{0}_{W}T = \begin{bmatrix} 0 &amp; 1 &amp; -10 \\ -1 &amp; 0 &amp; 30 \\ 0 &amp; 0 &amp; 1 \end{bmatrix},\qquad
+{}^{W}_{C}T = \begin{bmatrix} 0 &amp; 1 &amp; 10 \\ -1 &amp; 0 &amp; 40 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<div class="math" data-tex="{}^{C}_{G}T = \begin{bmatrix} 1 &amp; 0 &amp; 16 \\ 0 &amp; 1 &amp; 12 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<p>왼쪽부터 차례로 곱한다. 앞의 두 개를 곱하면 받침에서 본 카메라 <sup>0</sup>T<sub>C</sub>이고, 거기에 셋째를 곱하면 답이다.</p>
+<div class="math" data-tex="{}^{0}_{C}T = {}^{0}_{W}T\;{}^{W}_{C}T = \begin{bmatrix} -1 &amp; 0 &amp; 30 \\ 0 &amp; -1 &amp; 20 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<div class="math" data-tex="{}^{0}_{G}T = {}^{0}_{C}T\;{}^{C}_{G}T = \begin{bmatrix} -1 &amp; 0 &amp; 14 \\ 0 &amp; -1 &amp; 8 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<p>컵은 받침에서 (14, 8) cm에 있고, 받침과 반대 방향(180°)을 본다. 거리가 약 16 cm라 손끝이 닿는 2~18 cm 안이다. 그림에서도 받침의 x₀(위쪽)로 14 cm, y₀(왼쪽)로 8 cm 간 곳에 컵이 있다.</p>
+<blockquote>
+<p><strong>수학 더하기: 곱의 역행렬.</strong> (AB)⁻¹ = B⁻¹A⁻¹로 순서가 뒤집힌다. 양말을 신고 신발을 신었다면, 벗을 때는 신발부터 벗는 것과 같다. 변환으로 쓰면 (<sup>A</sup>T<sub>B</sub> <sup>B</sup>T<sub>C</sub>)⁻¹ = <sup>C</sup>T<sub>B</sub> <sup>B</sup>T<sub>A</sub>다.</p>
+</blockquote>
+<h3>한 바퀴 돌면 단위행렬</h3>
+<p>고리를 한 바퀴 돌아 제자리로 오면, 아무 데도 안 간 것과 같다. 그래서 고리를 따라 한 방향으로 곱하면 단위행렬 I가 된다.</p>
+<div class="math" data-tex="{}^{0}_{W}T\;{}^{W}_{C}T\;{}^{C}_{G}T\;{}^{G}_{0}T = I"></div>
+<p>모르는 것이 하나뿐이면 양쪽에 역행렬을 곱해 꺼낸다. 고리가 다섯, 여섯 칸으로 길어져도 방법은 같다. 늘 한 방향으로 걷고, 화살표가 반대인 칸은 역변환으로 바꾼다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 강의의 Romeo는 바퀴로 다니는 받침에 팔을 얹은 로봇이다. 바퀴가 미끄러져서 받침이 어디 있는지 모르는데, 천장의 카메라가 로봇의 손을 본다. 받침의 위치는 어떻게 구할까?</p>
+</blockquote>
+<p>손 {H}가 고리를 이어 준다. 카메라는 <sup>C</sup>T<sub>H</sub>를 보고, 받침에서 손까지는 엔코더 각도로 순기구학 <sup>0</sup>T<sub>H</sub>를 계산한다.</p>
+<p>그러면 <sup>C</sup>T<sub>0</sub> = <sup>C</sup>T<sub>H</sub> (<sup>0</sup>T<sub>H</sub>)⁻¹이다. 받침이 미끄러져도 손을 보면 받침을 찾는다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=998">16:38 카메라와 Romeo</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=1381">23:01 변환 방정식</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=1444">24:04 한 바퀴 돌면 단위행렬</a></p>
+<h2>3.4 손끝을 적는 숫자: 위치는 쉽다</h2>
+<p>여기서부터 강의의 둘째 주제다. 순기구학이 끝나면 받침에서 본 손끝의 동차변환 <sup>0</sup>T<sub>E</sub>를 얻는다. 엔코더 값을 넣으면 4×4 행렬의 숫자가 나온다.</p>
+<p>그런데 T를 그대로 쓰기는 불편하다. 손끝을 한 곳에서 다른 곳으로 부드럽게 옮기려면 중간값을 만들어야 한다. 속도와 가속도를 말하려면 숫자를 시간으로 미분해야 한다.</p>
+<p>그래서 손끝을 서로 얽히지 않은 숫자 몇 개로 적고 싶다. 2.2절의 작업 좌표다.</p>
+<div class="math" data-tex="X = \begin{bmatrix} X_P \\ X_R \end{bmatrix}
+\quad\begin{matrix} \leftarrow \text{위치} \\ \leftarrow \text{방향} \end{matrix}"></div>
+<ul>
+<li><strong>X<sub>P</sub></strong>(위치)는 T의 넷째 열 위 세 칸에 있다.</li>
+<li><strong>X<sub>R</sub></strong>(방향)은 T의 왼쪽 위 3×3, 회전행렬에 들어 있다.</li>
+</ul>
+<h3>위치를 적는 세 가지 좌표</h3>
+<p>위치는 쉽다. 숫자 세 개면 되고, 셋은 서로 얽히지 않는다. 적는 방법만 몇 가지 있다.</p>
+<table>
+<thead>
+<tr>
+<th>좌표</th>
+<th>숫자</th>
+<th>예: 점 (3, 4, 12)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>직교 좌표 (Cartesian)</td>
+<td>x, y, z</td>
+<td>(3, 4, 12)</td>
+</tr>
+<tr>
+<td>원기둥 좌표 (cylindrical)</td>
+<td>ρ, θ, z</td>
+<td>(5, 53.1°, 12)</td>
+</tr>
+<tr>
+<td>구면 좌표 (spherical)</td>
+<td>r, θ, φ</td>
+<td>(13, 53.1°, 22.6°)</td>
+</tr>
+</tbody>
+</table>
+<p>ρ는 점을 바닥(xy 면)에 내린 그림자의 길이, θ는 그 그림자를 x축에서 잰 각도다. r은 원점까지의 거리, φ는 z축에서 잰 각도다.</p>
+<p>대개는 직교 좌표를 쓴다. 공구를 한 방향으로 쭉 밀어 넣는 일이라면 원기둥 좌표가 편할 수 있다. 각도는 그대로 두고 거리 숫자 하나만 바꾸면 되기 때문이다.</p>
+<p>방향은 사정이 다르다. 교수는 "재미는 회전에서 시작된다"고 말한다. 다음 절부터 방향을 적는 방법을 차례로 본다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=1569">26:09 손끝을 숫자로 적기</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=1792">29:52 T에서 위치와 방향 꺼내기</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=1916">31:56 위치를 적는 세 가지 좌표</a></p>
+<h2>3.5 회전행렬을 그대로 쓰면: 숫자 9개, 제약 6개</h2>
+<p>방향을 적는 첫 방법은 회전행렬의 숫자 9개를 그대로 세로로 세우는 것이다. 회전행렬에는 방향의 모든 정보가 들어 있다. 이것을 <strong>방향 코사인 표현</strong>(direction cosines)이라 한다(2.6절).</p>
+<div class="math" data-tex="{}^{0}_{E}R = \begin{bmatrix} r_1 &amp; r_2 &amp; r_3 \end{bmatrix}
+\quad\Rightarrow\quad
+X_R = \begin{bmatrix} r_1 \\ r_2 \\ r_3 \end{bmatrix}\ (\text{숫자 9개})"></div>
+<p>r₁, r₂, r₃는 손끝의 x, y, z축을 받침의 숫자로 적은 세 열이다.</p>
+<h3>9개 중 자유로운 것은 3개</h3>
+<p>공중의 물체가 돌 수 있는 방향은 3개다(2.1절). 그런데 숫자는 9개다. 나머지 6개는 제약이 묶고 있다.</p>
+<ul>
+<li><strong>길이가 1</strong>: |r₁| = |r₂| = |r₃| = 1. 제약 3개.</li>
+<li><strong>서로 수직</strong>: r₁·r₂ = r₂·r₃ = r₃·r₁ = 0. 제약 3개.</li>
+</ul>
+<p>9 − 6 = 3이라서, 숫자 9개가 실제로는 3개의 자유만 가진다. 이처럼 숫자끼리 얽힌 표현을 <strong>중복 표현</strong>(redundant representation)이라 한다. 2.3절의 여유자유도(redundancy)와는 다른 뜻이다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 평면의 2×2 회전행렬은 숫자가 4개다. 제약은 몇 개이고, 자유로운 숫자는 몇 개인가?</p>
+</blockquote>
+<p>두 열의 길이가 1이라는 제약 2개, 두 열이 수직이라는 제약 1개로 모두 3개다. 4 − 3 = 1이다. 평면의 방향은 각도 θ 하나로 정해지니 맞아떨어진다.</p>
+<h3>왜 문제인가: 중간을 만들 수 없다</h3>
+<p>손끝을 x = 10 cm에서 22 cm로 옮긴다면 중간값은 쉽다. 13 cm, 16 cm, 19 cm 모두 손끝 위치로 쓸 수 있다. 위치의 세 숫자는 서로 얽히지 않았기 때문이다.</p>
+<p>방향은 그렇지 않다. 처음 방향과 끝 방향의 숫자를 칸마다 반씩 섞으면, 그 결과는 대개 회전행렬이 아니다. 아래 그림은 평면에서 회전행렬의 첫 열(x축)만 보여 준다.</p>
+<figure data-fig="fig3_3"><div class="fig-title">회전행렬의 숫자를 그대로 섞으면 축이 짧아진다</div><div class="fig-body"></div><div class="fig-note">주황은 행렬의 숫자를 칸마다 섞은 x축, 파랑은 각도를 섞은 x축이다. 회전행렬이라면 축의 길이가 1이어야 한다.</div><figcaption>그림 3-3 · 직접 섞어 보기: 처음 방향 0°와 끝 방향 사이의 중간 만들기</figcaption></figure>
+<ul>
+<li><strong>숫자를 섞은 축</strong>(주황)은 원 안쪽의 곧은 점선을 따라간다. 길이가 1보다 짧아진다.</li>
+<li><strong>끝 방향을 180°로 두고 반만 섞으면</strong> 길이가 0이 된다. 방향이 아예 사라진다.</li>
+<li><strong>각도를 섞은 축</strong>(파랑)은 원을 따라가서 길이가 늘 1이다.</li>
+</ul>
+<p>그래서 숫자 9개를 그대로 쓰면 움직이는 내내 제약 6개를 지켜봐야 한다. 위치의 숫자는 평평한 판 위를 다니지만, 방향의 숫자는 휘어진 면 위에서만 다니는 셈이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=2074">34:34 회전행렬 = 방향 코사인</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=2197">36:37 숫자 9개, 자유 3개</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=2322">38:42 중간을 만들 수 없다</a></p>
+<h2>3.6 세 각도로 적기: Z-Y-X 오일러 각</h2>
+<p>자유가 3개라면 숫자도 3개만 쓰고 싶다. 가장 흔한 방법이 각도 세 개다. {A}와 겹쳐 있던 좌표계를 축 하나씩 골라 세 번 돌려서 {B}에 맞춘다.</p>
+<h3>무엇을 정하나: 축의 순서와 축의 종류</h3>
+<p>세 번 돌리는 방법은 여러 가지라서, 두 가지를 정해야 한다.</p>
+<ol>
+<li><strong>어느 축으로, 어떤 순서로 돌리나.</strong> 예: z → y → x.</li>
+<li><strong>둘째, 셋째에 쓰는 축이 무엇인가.</strong> 방금 돌아간 새 축인가, 처음 {A}의 고정된 축인가.</li>
+</ol>
+<p>새 축으로 돌리면 <strong>오일러 각</strong>(Euler angles), 고정된 축으로 돌리면 <strong>고정 각</strong>(fixed angles)이라 한다. 이 절은 오일러 각을 보고, 고정 각은 3.7절에서 본다.</p>
+<h3>Z-Y-X 오일러 각: 새 축으로 세 번</h3>
+<p>강의 예제다. {A}에서 출발해 세 번 돈다.</p>
+<ol>
+<li>z축으로 α만큼 돈다. 생긴 좌표계를 {B′}라 한다.</li>
+<li>{B′}의 y축으로 β만큼 돈다. 생긴 좌표계는 {B″}다.</li>
+<li>{B″}의 x축으로 γ만큼 돈다. 이것이 {B}다.</li>
+</ol>
+<figure data-fig="fig3_4"><div class="fig-title">매번 방금 돌아간 새 축으로 돈다</div><div class="fig-body"></div><div class="fig-note">회색 점선은 돌기 전, 색은 돈 뒤의 좌표계다. 회색 띠가 그 단계에서 도는 축이다.</div><figcaption>그림 3-4 · Z-Y-X 오일러 각의 세 단계 (α = 150°, β = 50°, γ = 60°)</figcaption></figure>
+<p>단계마다의 회전행렬은 이미 안다. 2.6절의 기본 회전 R<sub>Z</sub>, R<sub>Y</sub>, R<sub>X</sub>다. 3.2절처럼 이웃끼리 곱하면 {A}에서 본 {B}가 된다.</p>
+<div class="math" data-tex="{}^{A}_{B}R = {}^{A}_{B&#x27;}R\;{}^{B&#x27;}_{B&#x27;&#x27;}R\;{}^{B&#x27;&#x27;}_{B}R = R_Z(\alpha)\,R_Y(\beta)\,R_X(\gamma)"></div>
+<p>새 축으로 돌 때는 <strong>오른쪽에 곱해 나간다.</strong> 돈 순서 Z, Y, X가 곱의 순서와 같다.</p>
+<p>곱을 다 풀면 아래와 같다. cα는 cos α, sβ는 sin β를 줄인 것이다.</p>
+<div class="math" data-tex="R_{Z&#x27;Y&#x27;X&#x27;}(\alpha,\beta,\gamma) = R_Z(\alpha)\,R_Y(\beta)\,R_X(\gamma)"></div>
+<div class="math" data-tex="= \begin{bmatrix}
+c\alpha c\beta &amp; c\alpha s\beta s\gamma - s\alpha c\gamma &amp; c\alpha s\beta c\gamma + s\alpha s\gamma \\
+s\alpha c\beta &amp; s\alpha s\beta s\gamma + c\alpha c\gamma &amp; s\alpha s\beta c\gamma - c\alpha s\gamma \\
+-s\beta &amp; c\beta s\gamma &amp; c\beta c\gamma
+\end{bmatrix}"></div>
+<p>외울 필요는 없다. 첫 열과 마지막 행이 짧다는 것만 봐 두면 3.8절에서 쓸모가 있다. 첫 열 (cαcβ, sαcβ, −sβ)는 x<sub>B</sub>가 {A}에서 가리키는 방향이다.</p>
+<p>아래 그림에서 세 각도를 직접 돌려 보자.</p>
+<figure data-fig="fig3_5"><div class="fig-title">세 각도를 정하면 회전행렬의 9칸이 모두 정해진다</div><div class="fig-body"></div><div class="fig-note">회색 축은 {A}, 색 축과 판은 {B}다. 아래 행렬의 열은 {B}의 축을 {A}의 숫자로 적은 것이다.</div><figcaption>그림 3-5 · 직접 돌려 보기: Z-Y-X 오일러 각</figcaption></figure>
+<p>해 볼 것:</p>
+<ol>
+<li><strong>세 각도를 모두 0°로 둔다.</strong> 행렬이 단위행렬이 된다.</li>
+<li><strong>γ만 90°로 둔다.</strong> 2.6절의 x축 90° 예제와 같은 행렬이 나온다. 강의에서 "이 좌표계의 α, β, γ는?"이라고 물은 문제의 답, (0°, 0°, 90°)가 이것이다.</li>
+<li><strong>α를 움직인다.</strong> 판이 늘 z<sub>A</sub>를 중심으로 돈다. 첫 회전이라 새 축과 처음 축이 같기 때문이다.</li>
+</ol>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=2452">40:52 세 각도 표현</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=2609">43:29 새 축과 고정 축</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=2769">46:09 Z-Y-X 오일러 각</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3239">53:59 강의 퀴즈</a></p>
+<h2>3.7 고정 각: 순서가 거꾸로 된다</h2>
+<h3>X-Y-Z 고정 각</h3>
+<p>이번에는 세 번 모두 {A}의 고정된 축으로 돈다. 먼저 x<sub>A</sub>로 γ, 그다음 y<sub>A</sub>로 β, 마지막으로 z<sub>A</sub>로 α만큼 돈다. 비행기와 배에서 쓰는 <strong>롤</strong>(roll), <strong>피치</strong>(pitch), <strong>요</strong>(yaw)가 이것이다.</p>
+<p>고정된 축으로 도는 것은 2.9절의 연산자다. 물체 위의 점 v를 차례로 돌린다고 생각하자. 세 번 모두 같은 {A}의 숫자로 계산한다.</p>
+<div class="math" data-tex="v \;\to\; R_X(\gamma)\,v \;\to\; R_Y(\beta)\,R_X(\gamma)\,v"></div>
+<div class="math" data-tex="\;\to\; R_Z(\alpha)\,R_Y(\beta)\,R_X(\gamma)\,v"></div>
+<p>새 회전이 매번 <strong>왼쪽에</strong> 붙는다. 그래서 마지막에 돈 z가 맨 왼쪽에 온다.</p>
+<div class="math" data-tex="R_{XYZ}(\gamma,\beta,\alpha) = R_Z(\alpha)\,R_Y(\beta)\,R_X(\gamma)"></div>
+<div class="math" data-tex="= R_{Z&#x27;Y&#x27;X&#x27;}(\alpha,\beta,\gamma)"></div>
+<p>3.6절의 Z-Y-X 오일러 각과 <strong>똑같은 곱</strong>이다. 같은 세 각도로, 고정 축으로는 x → y → z 순서로, 새 축으로는 z → y → x 순서로 돌면 같은 자세에 닿는다.</p>
+<h3>왜 순서가 뒤집히나</h3>
+<p>두 번만 돌려도 보인다. 아래 그림은 90°씩 두 번 돌린 두 가지 방법이다.</p>
+<figure data-fig="fig3_6"><div class="fig-title">새 축으로 z → y, 처음 축으로 y → z: 같은 자세에 닿는다</div><div class="fig-body"></div><div class="fig-note">물체에 붙은 축은 파랑이 x, 주황이 y, 나머지 하나가 z다. 중간 자세는 다르지만 끝 자세는 같다. 둘 다 R = R<sub>Z</sub>(90°) R<sub>Y</sub>(90°)이다.</div><figcaption>그림 3-6 · 돌리는 순서를 뒤집으면 두 방법이 같아진다</figcaption></figure>
+<p>(가)의 둘째 축 "새 y"는 첫 회전(z로 90°)이 옮겨 놓은 y축이다. (나)는 y 회전을 먼저 해 두고, 그다음 처음 z로 물체 전체를 돌린다. 이때 앞서 한 y 회전도 통째로 z로 돌아가서, 결국 "새 y"를 두고 돈 것과 같아진다.</p>
+<p>책이나 휴대폰을 들고 직접 해 보면 금방 믿어진다. 책상에 놓고 (가)처럼 한 번, 처음 자세로 돌려 놓고 (나)처럼 한 번 돌려 보자.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 세 각도 표현은 모두 몇 가지일까? 같은 축으로 연달아 두 번 도는 것은 한 번 도는 것과 같다는 점을 생각하자.</p>
+</blockquote>
+<p>첫 축은 3가지다. 둘째 축은 첫 축과 달라야 하니 2가지, 셋째 축도 둘째와 달라야 하니 2가지다. 3 × 2 × 2 = 12가지다.</p>
+<p>오일러 각 12가지와 고정 각 12가지를 합하면 24가지다. 그런데 고정 각은 순서를 뒤집은 오일러 각과 같아서, 서로 다른 행렬은 12가지뿐이다.</p>
+<h3>Z-Y-Z 오일러 각</h3>
+<p>셋째 축이 첫 축과 같아도 된다. z로 α, 새 y로 β, 다시 새 z로 γ만큼 돈다. 곱은 이렇다.</p>
+<div class="math" data-tex="R_{Z&#x27;Y&#x27;Z&#x27;}(\alpha,\beta,\gamma) = R_Z(\alpha)\,R_Y(\beta)\,R_Z(\gamma)"></div>
+<div class="math" data-tex="= \begin{bmatrix}
+c\alpha c\beta c\gamma - s\alpha s\gamma &amp; -c\alpha c\beta s\gamma - s\alpha c\gamma &amp; c\alpha s\beta \\
+s\alpha c\beta c\gamma + c\alpha s\gamma &amp; -s\alpha c\beta s\gamma + c\alpha c\gamma &amp; s\alpha s\beta \\
+-s\beta c\gamma &amp; s\beta s\gamma &amp; c\beta
+\end{bmatrix}"></div>
+<p>오른쪽 아래 칸이 cβ 하나뿐이라 β를 바로 읽을 수 있다. 관절 세 개의 축이 한 점에서 만나는 손목은 이 Z-Y-Z 꼴로 도는 것이 많다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 프로그램 라이브러리마다 세 각도의 약속이 다르다. 파이썬의 scipy는 <code>'ZYX'</code>처럼 대문자로 쓰면 새 축(오일러 각), <code>'zyx'</code>처럼 소문자로 쓰면 고정 축이다. 각도 세 개를 주고받을 때는 축 순서와 축 종류를 꼭 함께 적는다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=2954">49:14 고정 각</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3207">53:27 Z-Y-Z 오일러 각</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3303">55:03 고정 각 = 오일러 각</a></p>
+<h2>3.8 거꾸로: 행렬에서 각도 꺼내기</h2>
+<p>실제 로봇에서는 방향이 거꾸로 주어진다. 엔코더 각도로 순기구학을 풀면 회전행렬의 숫자 9개가 나온다. 거기서 α, β, γ를 구하는 일을 <strong>역문제</strong>(inverse problem)라 한다.</p>
+<h3>짧은 칸부터 본다</h3>
+<p>3.6절의 행렬에서 짧은 칸 다섯 개만 쓰면 된다.</p>
+<ul>
+<li>r₃₁ = −sβ</li>
+<li>r₁₁ = cαcβ, r₂₁ = sαcβ</li>
+<li>r₃₂ = cβsγ, r₃₃ = cβcγ</li>
+</ul>
+<p>r₁₁과 r₂₁을 제곱해 더하면 c²β(c²α + s²α) = c²β다. 그래서 cβ = √(r₁₁² + r₂₁²)이고, sβ는 −r₃₁로 바로 읽는다. sin과 cos을 둘 다 알면 각도가 하나로 정해진다.</p>
+<blockquote>
+<p><strong>수학 더하기: atan2.</strong> (0.5, 0.87)과 (−0.5, −0.87)은 방향이 반대인데 y/x가 같아서, tan θ = y/x만으로는 둘을 가를 수 없다. <b>atan2(y, x)</b>는 y와 x를 따로 받아서, 둘의 부호로 사분면까지 가려 −180°~180°의 각도를 준다. 파이썬에서는 <code>np.arctan2(y, x)</code>이고, y를 먼저 쓴다.</p>
+</blockquote>
+<figure data-fig="fig3_7"><div class="fig-title">기울기가 같은 두 방향을 atan2는 부호로 가린다</div><div class="fig-body"></div><figcaption>그림 3-7 · tan만으로는 사분면을 모른다</figcaption></figure>
+<p>이제 세 각도를 차례로 구한다.</p>
+<div class="math" data-tex="\beta = \operatorname{atan2}\!\left(-r_{31},\ \sqrt{r_{11}^2 + r_{21}^2}\right)"></div>
+<div class="math" data-tex="\alpha = \operatorname{atan2}\!\left(\frac{r_{21}}{c\beta},\ \frac{r_{11}}{c\beta}\right),\qquad
+\gamma = \operatorname{atan2}\!\left(\frac{r_{32}}{c\beta},\ \frac{r_{33}}{c\beta}\right)"></div>
+<p>제곱근은 양수로 고른다. 그러면 cβ가 양수이고 β는 −90°~90° 사이로 나온다.</p>
+<h3>예제</h3>
+<p>(α, β, γ) = (120°, 30°, −45°)로 돌린 행렬이 아래와 같다고 하자. 각도는 모르는 척하고 숫자에서 거꾸로 구해 본다.</p>
+<div class="math" data-tex="R = \begin{bmatrix} -0.433 &amp; -0.436 &amp; -0.789 \\ 0.750 &amp; -0.660 &amp; -0.047 \\ -0.500 &amp; -0.612 &amp; 0.612 \end{bmatrix}"></div>
+<ol>
+<li><strong>β</strong>: −r₃₁ = 0.500이다. √(0.433² + 0.750²) = √0.75 = 0.866이다. atan2(0.500, 0.866) = 30°.</li>
+<li><strong>α</strong>: atan2(0.750/0.866, −0.433/0.866) = atan2(0.866, −0.5) = 120°. tan만 쓰면 tan⁻¹(−1.73) = −60°가 나와서 틀린다.</li>
+<li><strong>γ</strong>: atan2(−0.612/0.866, 0.612/0.866) = atan2(−0.707, 0.707) = −45°.</li>
+</ol>
+<p>α는 둘째 사분면, γ는 넷째 사분면에 있다. atan2가 없으면 둘 다 틀리기 쉽다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 같은 R을 만드는 각도는 사실 두 벌이다. (α + 180°, 180° − β, γ + 180°)를 넣어도 같은 행렬이 된다. 제곱근을 양수로 고르는 것은 둘 중 β가 −90°~90°인 쪽을 고르는 약속이다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=3370">56:10 각도를 거꾸로 구하기</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3470">57:50 atan2</a></p>
+<h2>3.9 표현의 특이점: 짐벌 잠금</h2>
+<p>3.8절의 식은 cβ로 나눈다. cβ = 0, 곧 β = ±90°이면 나눌 수 없다. 그때는 무슨 일이 생길까?</p>
+<h3>β = 90°이면 α와 γ가 같은 일을 한다</h3>
+<p>β = 90°를 3.6절의 행렬에 넣고 삼각함수의 덧셈 공식으로 정리하면 이렇게 된다.</p>
+<div class="math" data-tex="R_{Z&#x27;Y&#x27;X&#x27;}(\alpha, 90^\circ, \gamma) = \begin{bmatrix} 0 &amp; -\sin(\alpha-\gamma) &amp; \cos(\alpha-\gamma) \\ 0 &amp; \cos(\alpha-\gamma) &amp; \sin(\alpha-\gamma) \\ -1 &amp; 0 &amp; 0 \end{bmatrix}"></div>
+<p>α와 γ가 따로 나오지 않고 <strong>차이 α − γ로만</strong> 나오니, 행렬에서는 α − γ만 구할 수 있다. α = 50°, γ = 20°와 α = 40°, γ = 10°는 같은 행렬이다. β = −90°이면 반대로 합 α + γ만 구할 수 있다.</p>
+<p>그림으로 보면 이유가 분명하다. β = 90°이면 마지막에 도는 축 x<sub>B</sub>가 바로 아래(−z<sub>A</sub>)를 본다. α는 z<sub>A</sub>로 돌고 γ도 같은 줄로 돌아서, 두 각도가 축 하나를 나눠 쓴다.</p>
+<figure data-fig="fig3_8"><div class="fig-title">β = 90°이면 α의 축과 γ의 축이 한 줄로 겹친다</div><div class="fig-body"></div><div class="fig-note">띠는 각도마다 도는 축이다. 회색은 α(z<sub>A</sub>), 파랑은 β(새 y), 주황은 γ(x<sub>B</sub>)다. 판은 {B}에 붙어 함께 돈다.</div><figcaption>그림 3-8 · 직접 돌려 보기: 짐벌 잠금</figcaption></figure>
+<p>해 볼 것:</p>
+<ol>
+<li><strong>β = 90°에서 α를 움직이고, 다음에 γ를 움직여 본다.</strong> 판이 같은 세로축을 중심으로 돈다. 도는 쪽만 반대다.</li>
+<li><strong>α와 γ를 같은 양만큼 함께 바꾼다.</strong> 예를 들어 (30°, 0°)를 (50°, 20°)로 바꾼다. 행렬이 그대로다.</li>
+<li><strong>β를 60°, 30°로 낮춘다.</strong> 두 띠가 벌어지고, α와 γ가 서로 다른 움직임을 만든다.</li>
+</ol>
+<p>이 현상을 <strong>짐벌 잠금</strong>(gimbal lock)이라 한다. 짐벌은 고리 세 개를 겹쳐 안쪽 물체를 어느 방향으로나 돌릴 수 있게 한 장치다. 가운데 고리가 90° 서면 바깥 고리와 안쪽 고리가 같은 축으로 돌게 되어, 한 방향으로는 돌릴 수 없게 된다.</p>
+<h3>로봇이 아니라 적는 방법의 문제다</h3>
+<p>이것을 <strong>표현의 특이점</strong>(representation singularity)이라 한다. 로봇은 그 자세에서도 아무 문제 없이 움직인다. 우리가 고른 "세 각도"라는 적는 방법이 그 자세에서 고장 날 뿐이다.</p>
+<p>1.4절의 특이점은 다르다. 그것은 팔이 정말로 어떤 방향으로 움직일 수 없는 자세로, <strong>기구학적 특이점</strong>이라 하고 7강에서 배운다. 표현의 특이점은 다른 표현으로 바꾸면 사라진다.</p>
+<p>그래도 표현의 특이점은 성가시다. 손끝이 그 자세 가까이 가면 α와 γ가 아주 빨리 변한다. 각도의 속도를 구할 수 없어서 부드러운 움직임을 만들기 어렵다.</p>
+<p>작게 움직일 때는 특이점을 피해 축 순서를 고를 수 있지만, 크게 돌면 어딘가에서 만난다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> Z-Y-Z 오일러 각은 어디에서 특이점이 생길까?</p>
+</blockquote>
+<p>β = 0° 또는 180°다. sβ = 0이면 첫 z축과 마지막 z축이 한 줄이 되어, α와 γ가 같은 축으로 돈다. 3.7절의 행렬에서도 r₁₃, r₂₃, r₃₁, r₃₂가 모두 0이 되어 α와 γ를 따로 구할 수 없다.</p>
+<p>수학으로 증명된 사실이 하나 있다. <strong>숫자 세 개로 적는 방향 표현은 모두 어딘가에 특이점이 있다.</strong> 축 순서를 바꾸면 특이점의 자리만 옮겨 갈 뿐이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=3535">58:55 cos β = 0이면</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3567">59:27 표현의 특이점과 기구학적 특이점</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3630">1:00:30 α와 γ를 가를 수 없다</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3755">1:02:35 숫자 셋이면 피할 수 없다</a></p>
+<h2>3.10 네 숫자로: 각-축 표현과 오일러 파라미터</h2>
+<p>9개는 너무 많고, 3개는 어딘가에서 고장 난다. 그러면 4개를 써 보자.</p>
+<h3>각-축 표현: 축 하나로 한 번만 돌면 된다</h3>
+<p>{A}에서 {B}로 가는 회전은 언제나 <strong>어떤 축 K 하나로 한 번 도는 것</strong>으로 바꿔 말할 수 있다. 길이가 1인 축 K = (k<sub>x</sub>, k<sub>y</sub>, k<sub>z</sub>)와 각도 θ로 적는 이 방법을 <strong>각-축 표현</strong>(equivalent angle-axis representation)이라 한다.</p>
+<p>회전행렬은 아래와 같다. vθ = 1 − cθ다.</p>
+<div class="math" data-tex="R_K(\theta) = \begin{bmatrix}
+k_x k_x v\theta + c\theta &amp; k_x k_y v\theta - k_z s\theta &amp; k_x k_z v\theta + k_y s\theta \\
+k_x k_y v\theta + k_z s\theta &amp; k_y k_y v\theta + c\theta &amp; k_y k_z v\theta - k_x s\theta \\
+k_x k_z v\theta - k_y s\theta &amp; k_y k_z v\theta + k_x s\theta &amp; k_z k_z v\theta + c\theta
+\end{bmatrix}"></div>
+<p>K = (1, 0, 0)을 넣으면 R<sub>X</sub>(θ)가 된다. 거꾸로 R에서 θ와 K를 꺼내는 식은 이렇다.</p>
+<div class="math" data-tex="\theta = \cos^{-1}\!\left(\frac{r_{11}+r_{22}+r_{33}-1}{2}\right)"></div>
+<div class="math" data-tex="K = \frac{1}{2\sin\theta}\begin{bmatrix} r_{32}-r_{23} \\ r_{13}-r_{31} \\ r_{21}-r_{12} \end{bmatrix}"></div>
+<p>K에 θ(라디안)를 곱한 (θk<sub>x</sub>, θk<sub>y</sub>, θk<sub>z</sub>)는 숫자 세 개로 방향을 적고, 중간값을 만들기도 좋다.</p>
+<p>그런데 역시 sin θ로 나누어서, θ = 0° 또는 180°이면 K를 구할 수 없다. 숫자 셋인 표현이라 3.9절의 사실을 피하지 못한다.</p>
+<h3>오일러 파라미터: 반각으로 만든 네 숫자</h3>
+<p>축 K와 각도 θ는 그대로 쓰되, 반각 θ/2로 숫자 네 개를 만든다. 이것이 <strong>오일러 파라미터</strong>(Euler parameters)다. 컴퓨터 그래픽과 드론에서는 <strong>단위 쿼터니언</strong>(unit quaternion)이라는 이름으로 더 자주 만난다.</p>
+<div class="math" data-tex="\begin{bmatrix} \varepsilon_1 \\ \varepsilon_2 \\ \varepsilon_3 \end{bmatrix} = \begin{bmatrix} k_x \\ k_y \\ k_z \end{bmatrix}\sin\frac{\theta}{2},\qquad
+\varepsilon_4 = \cos\frac{\theta}{2}"></div>
+<p>네 숫자의 제곱을 더하면 늘 1이다. K의 길이가 1이고, sin² + cos² = 1이기 때문이다.</p>
+<div class="math" data-tex="\varepsilon_1^2 + \varepsilon_2^2 + \varepsilon_3^2 + \varepsilon_4^2 = 1"></div>
+<p>제약이 하나뿐이라 4 − 1 = 3으로 자유로운 숫자 셋과 맞는다. 제약이 6개인 방향 코사인보다 훨씬 다루기 쉽다. 네 숫자를 4차원 공간의 점으로 보면, 반지름 1인 구면 위의 점이다.</p>
+<h3>거꾸로: 가장 큰 것으로 나눈다</h3>
+<p>R에서 ε를 꺼낼 때도 나눗셈이 나온다. 대각선 세 칸의 합이 4ε₄² − 1이므로 ε₄부터 구한다.</p>
+<div class="math" data-tex="\varepsilon_4 = \tfrac{1}{2}\sqrt{1 + r_{11} + r_{22} + r_{33}}"></div>
+<div class="math" data-tex="\varepsilon_1 = \frac{r_{32}-r_{23}}{4\varepsilon_4},\quad
+\varepsilon_2 = \frac{r_{13}-r_{31}}{4\varepsilon_4},\quad
+\varepsilon_3 = \frac{r_{21}-r_{12}}{4\varepsilon_4}"></div>
+<p>ε₄ = 0(θ = 180°)이면 또 0으로 나눈다. 그런데 이번에는 빠져나갈 길이 있다.</p>
+<p>제곱 합이 1이므로 <strong>넷 중 적어도 하나는 크기가 ½ 이상</strong>이다. 넷 모두 ½보다 작으면 제곱 합이 4 × ¼ = 1에 못 미치기 때문이다.</p>
+<p>그래서 넷 중 가장 큰 것을 먼저 구하고, 그것으로 나눈다. 예를 들어 ε₁이 가장 크면 이렇게 푼다.</p>
+<div class="math" data-tex="\varepsilon_1 = \tfrac{1}{2}\sqrt{1 + r_{11} - r_{22} - r_{33}}"></div>
+<div class="math" data-tex="\varepsilon_2 = \frac{r_{21}+r_{12}}{4\varepsilon_1},\quad
+\varepsilon_3 = \frac{r_{31}+r_{13}}{4\varepsilon_1},\quad
+\varepsilon_4 = \frac{r_{32}-r_{23}}{4\varepsilon_1}"></div>
+<p>나누는 수가 ½보다 작아지지 않으니 어느 자세에서도 안전하다. ε₂, ε₃가 가장 클 때도 같은 꼴의 식이 있다. 숫자 넷으로 특이점을 없앤 것이다.</p>
+<figure data-fig="fig3_9"><div class="fig-title">네 숫자 중 하나는 늘 크기가 ½ 이상이다</div><div class="fig-body"></div><div class="fig-note">축은 K = (0, 0.6, 0.8)로 고정했다. 파란 점선은 x축 끝이 지나간 길이다. 주황 막대가 가장 큰 칸이다.</div><figcaption>그림 3-9 · 직접 돌려 보기: 축 K로 θ만큼 돌 때의 오일러 파라미터</figcaption></figure>
+<p>해 볼 것:</p>
+<ol>
+<li><strong>θ = 60°</strong>: ε = (0, 0.3, 0.4, 0.87)이다. 제곱 합은 0.09 + 0.16 + 0.75 = 1이다.</li>
+<li><strong>θ = 0°와 180°</strong>: 각-축 식은 sin θ = 0으로 나누게 되어 멈춘다. 오일러 파라미터는 가장 큰 칸(ε₄ 또는 ε₃)으로 문제없이 푼다.</li>
+<li><strong>θ를 음수로</strong>: K가 (0, −0.6, −0.8)로 거꾸로 나온다. −K축으로 거꾸로 도는 것은 같은 회전이다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 강의 끝의 퀴즈다. x축으로 60° 돈 회전의 오일러 파라미터와 방향 코사인 표현은?</p>
+</blockquote>
+<p>K = (1, 0, 0), θ/2 = 30°다. ε = (sin 30°, 0, 0, cos 30°) = (½, 0, 0, √3/2)이다. 방향 코사인은 R<sub>X</sub>(60°)의 세 열을 이어 붙인 (1, 0, 0, 0, ½, √3/2, 0, −√3/2, ½)다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> ε와 −ε는 같은 회전이다. θ 대신 θ + 360°를 넣으면 반각이 180° 바뀌어 네 숫자의 부호가 모두 뒤집히기 때문이다. 또 프로그램마다 네 숫자의 순서가 달라서, (x, y, z, w)로도 (w, x, y, z)로도 쓴다(w가 ε₄).</p>
+</blockquote>
+<p>이 장에서 본 방향 표현을 정리하면 이렇다.</p>
+<table>
+<thead>
+<tr>
+<th>표현</th>
+<th>숫자</th>
+<th>제약</th>
+<th>특이점</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>방향 코사인 (회전행렬)</td>
+<td>9</td>
+<td>6</td>
+<td>없다</td>
+</tr>
+<tr>
+<td>세 각도 (오일러 각, 고정 각)</td>
+<td>3</td>
+<td>0</td>
+<td>있다 (Z-Y-X는 β = ±90°)</td>
+</tr>
+<tr>
+<td>각-축 (θK)</td>
+<td>3</td>
+<td>0</td>
+<td>있다 (θ = 0°, 180°)</td>
+</tr>
+<tr>
+<td>오일러 파라미터</td>
+<td>4</td>
+<td>1</td>
+<td>없다 (가장 큰 칸으로 푼다)</td>
+</tr>
+</tbody>
+</table>
+<p>이것으로 3강 내용이 끝난다. 4강에서는 링크마다 좌표계를 붙이는 규칙(DH 파라미터)을 배운다. 3.2절의 종이 팔처럼 이웃한 좌표계 사이의 T를 정하고 곱하는 일을, 어떤 팔에나 쓸 수 있게 정리한 것이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/Mm5Tfm04cKk?t=3820">1:03:40 각-축 표현</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=3980">1:06:20 오일러 파라미터</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=4167">1:09:27 가장 큰 것으로 푼다</a> · <a href="https://youtu.be/Mm5Tfm04cKk?t=4228">1:10:28 강의 퀴즈</a></p>
+<h2>3.11 연습문제</h2>
+<p>종이에 축을 그리면서 푼다. 답은 문제 7개 아래에 있다. 답을 보기 전에 손으로 끝까지 풀어 본다.</p>
+<ol>
+<li>종이 팔이 θ₁ = 90°, θ₂ = 90°다. <sup>0</sup>T<sub>1</sub>, <sup>1</sup>T<sub>2</sub>, <sup>0</sup>T<sub>2</sub>를 구하고, 손끝의 위치를 구하라. 그림 3-1로 확인하라.</li>
+<li>3.3절의 Romeo 문제를 숫자로 풀어 보자. 문제 1의 자세에서 손 {H}는 {2}를 x₂ 방향으로 8 cm 옮긴 좌표계다. 카메라가 본 손은 <sup>C</sup>T<sub>H</sub> = (90° 회전, 원점 (12, 4))다. 카메라에서 본 받침 <sup>C</sup>T<sub>0</sub>를 구하라.</li>
+<li>회전행렬 둘을 반씩 섞은 M = ½ I + ½ R<sub>Z</sub>(90°)가 회전행렬인지 2.6절의 방법으로 확인하라.</li>
+<li>Z-Y-X 오일러 각 (α, β, γ) = (90°, 0°, 90°)의 회전행렬을 구하라. {B}의 각 축은 {A}의 어느 축과 같은가? 같은 행렬을 고정 각으로 읽으면 어느 축으로 어떤 순서로 도는 것인가?</li>
+<li>아래 행렬 R₅의 Z-Y-X 오일러 각을 atan2로 구하라.</li>
+<li>아래 행렬 R₆의 β를 구하라. α와 γ는 어디까지 알 수 있나? 이 행렬을 만드는 (α, γ)를 두 쌍 적어라.</li>
+<li>오일러 파라미터를 구하라.<ol>
+<li>z축으로 90° 돈 회전 (K와 θ에서 바로)</li>
+<li>z축으로 180° 돈 회전 R = [[−1, 0, 0], [0, −1, 0], [0, 0, 1]] (행렬에서 거꾸로). ε₄ 식을 쓰면 어떻게 되나?</li>
+</ol>
+</li>
+</ol>
+<p>문제 5와 6의 행렬:</p>
+<div class="math" data-tex="R_5 = \begin{bmatrix} -0.354 &amp; -0.862 &amp; -0.362 \\ -0.612 &amp; -0.079 &amp; 0.787 \\ -0.707 &amp; 0.500 &amp; -0.500 \end{bmatrix},\qquad
+R_6 = \begin{bmatrix} 0 &amp; -0.5 &amp; 0.866 \\ 0 &amp; 0.866 &amp; 0.5 \\ -1 &amp; 0 &amp; 0 \end{bmatrix}"></div>
+<h3>답</h3>
+<p><strong>답 1.</strong> <sup>0</sup>T<sub>1</sub>은 90° 회전이고 원점은 (0, 0)이다. <sup>1</sup>T<sub>2</sub>도 90° 회전이고 원점은 (10, 0)이다. 곱하면 회전은 90° + 90° = 180°이고, 오른쪽 열은 R(90°)(10, 0) + (0, 0) = (0, 10)이다.</p>
+<div class="math" data-tex="{}^{0}_{1}T = \begin{bmatrix} 0 &amp; -1 &amp; 0 \\ 1 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 1 \end{bmatrix},\qquad
+{}^{1}_{2}T = \begin{bmatrix} 0 &amp; -1 &amp; 10 \\ 1 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<div class="math" data-tex="{}^{0}_{2}T = {}^{0}_{1}T\;{}^{1}_{2}T = \begin{bmatrix} -1 &amp; 0 &amp; 0 \\ 0 &amp; -1 &amp; 10 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<p>손끝은 <sup>0</sup>T<sub>2</sub> (8, 0, 1) = R(180°)(8, 0) + (0, 10) = <b>(−8, 10) cm</b>다. 1장의 공식으로도 10 cos 90° + 8 cos 180° = −8, 10 sin 90° + 8 sin 180° = 10이다. 팔꿈치에서 링크 2가 왼쪽으로 꺾인 자세다.</p>
+<p><strong>답 2.</strong> <sup>0</sup>T<sub>H</sub> = <sup>0</sup>T<sub>2</sub> <sup>2</sup>T<sub>H</sub>는 회전 180°, 원점 (−8, 10)이다. 고리는 C → H → 0이고, H → 0은 화살표를 거꾸로 걷는다. 그래서 <sup>C</sup>T<sub>0</sub> = <sup>C</sup>T<sub>H</sub> (<sup>0</sup>T<sub>H</sub>)⁻¹이다.</p>
+<p>(<sup>0</sup>T<sub>H</sub>)⁻¹은 회전 −180°(= 180°)이고, 원점은 −Rᵀ(−8, 10) = (−8, 10)이다. <sup>C</sup>T<sub>H</sub>와 곱하면 회전은 90° + 180° = 270°, 곧 −90°다. 원점은 R(90°)(−8, 10) + (12, 4) = (−10, −8) + (12, 4) = <b>(2, −4)</b>다.</p>
+<div class="math" data-tex="{}^{C}_{0}T = \begin{bmatrix} 0 &amp; 1 &amp; 2 \\ -1 &amp; 0 &amp; -4 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<p>확인: <sup>C</sup>T<sub>0</sub> <sup>0</sup>T<sub>H</sub>의 원점은 R(−90°)(−8, 10) + (2, −4) = (10, 8) + (2, −4) = (12, 4)다. 카메라가 본 손과 맞는다.</p>
+<p><strong>답 3.</strong> 회전행렬이 아니다. M = [[0.5, −0.5, 0], [0.5, 0.5, 0], [0, 0, 1]]이고, 첫 열 (0.5, 0.5, 0)의 길이는 √0.5 ≈ 0.71이라 1이 아니다. 열끼리는 수직이지만 길이 제약이 깨졌다.</p>
+<p>그림 3-3에서 끝 방향 90°, s = 0.5로 맞춘 것과 같다.</p>
+<p><strong>답 4.</strong> R<sub>Z</sub>(90°) R<sub>Y</sub>(0°) R<sub>X</sub>(90°) = R<sub>Z</sub>(90°) R<sub>X</sub>(90°)이다.</p>
+<div class="math" data-tex="R = \begin{bmatrix} 0 &amp; -1 &amp; 0 \\ 1 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 1 \end{bmatrix}\begin{bmatrix} 1 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; -1 \\ 0 &amp; 1 &amp; 0 \end{bmatrix} = \begin{bmatrix} 0 &amp; 0 &amp; 1 \\ 1 &amp; 0 &amp; 0 \\ 0 &amp; 1 &amp; 0 \end{bmatrix}"></div>
+<p>열을 읽으면 x<sub>B</sub> = y<sub>A</sub>, y<sub>B</sub> = z<sub>A</sub>, z<sub>B</sub> = x<sub>A</sub>다. 축 이름이 한 칸씩 돌아갔다. 고정 각으로 읽으면 순서가 뒤집혀, 처음 x축으로 90° 돈 다음 처음 z축으로 90° 도는 것이다(X-Y-Z 고정 각 (90°, 0°, 90°)).</p>
+<p><strong>답 5.</strong> (α, β, γ) = <b>(−120°, 45°, 135°)</b>다.</p>
+<ul>
+<li>β = atan2(0.707, √(0.354² + 0.612²)) = atan2(0.707, 0.707) = 45°. cβ = 0.707이다.</li>
+<li>α = atan2(−0.612/0.707, −0.354/0.707) = atan2(−0.866, −0.5) = −120°. 셋째 사분면이다.</li>
+<li>γ = atan2(0.500/0.707, −0.500/0.707) = atan2(0.707, −0.707) = 135°. 둘째 사분면이다.</li>
+</ul>
+<p>tan만 쓰면 α는 60°, γ는 −45°로 틀린다.</p>
+<p><strong>답 6.</strong> −r₃₁ = 1, √(r₁₁² + r₂₁²) = 0이므로 β = atan2(1, 0) = 90°인 짐벌 잠금 자세다. sin(α − γ) = 0.5, cos(α − γ) = 0.866이므로 α − γ = 30°만 안다.</p>
+<p>예를 들어 (α, γ) = (30°, 0°), (60°, 30°)가 모두 R₆을 만든다. 흔히 α = 0°으로 정하고 γ = −30°로 답한다.</p>
+<p><strong>답 7.</strong> (1) K = (0, 0, 1), θ/2 = 45°다. ε = (0, 0, sin 45°, cos 45°) = (0, 0, 0.707, 0.707)이고, 제곱 합은 0.5 + 0.5 = 1이다.</p>
+<p>(2) ε₄ = ½√(1 − 1 − 1 + 1) = 0이라, ε₄로 나누는 식은 쓸 수 없다. 그래서 가장 큰 칸 ε₃ = ½√(1 − r₁₁ − r₂₂ + r₃₃) = ½√4 = 1부터 구한다. 나머지는 ε₁ = (r₁₃ + r₃₁)/(4ε₃) = 0, ε₂ = (r₂₃ + r₃₂)/(4ε₃) = 0, ε₄ = (r₂₁ − r₁₂)/(4ε₃) = 0이다.</p>
+<p>답은 <b>ε = (0, 0, 1, 0)</b>이다. K = (0, 0, 1), θ = 180°에서 바로 구한 (0, 0, sin 90°, cos 90°)와 같다.</p>
+<h3>파이썬으로 확인</h3>
+<p>파이썬(numpy)이 있으면 아래를 붙여 넣어 돌려 본다. 주석의 값이 그대로 나온다.</p>
+<pre><code class="language-python">import numpy as np
+
+def rot_x(deg):
+    t = np.radians(deg); c, s = np.cos(t), np.sin(t)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+def rot_y(deg):
+    t = np.radians(deg); c, s = np.cos(t), np.sin(t)
+    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
+
+def rot_z(deg):
+    t = np.radians(deg); c, s = np.cos(t), np.sin(t)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+def homog2(deg, p):
+    &quot;&quot;&quot;평면 동차변환 3×3: deg만큼 돌고 원점이 p인 좌표계.&quot;&quot;&quot;
+    T = np.eye(3)
+    T[:2, :2] = rot_z(deg)[:2, :2]
+    T[:2, 2] = p
+    return T
+
+def inv_homog(T):
+    &quot;&quot;&quot;동차변환의 역: 왼쪽 위는 전치, 오른쪽 위는 -R^T p.&quot;&quot;&quot;
+    n = T.shape[0] - 1
+    R, p = T[:n, :n], T[:n, n]
+    Ti = np.eye(n + 1)
+    Ti[:n, :n], Ti[:n, n] = R.T, -R.T @ p
+    return Ti
+
+def zyx(a, b, g):
+    &quot;&quot;&quot;Z-Y-X 오일러 각 = X-Y-Z 고정 각 (도).&quot;&quot;&quot;
+    return rot_z(a) @ rot_y(b) @ rot_x(g)
+
+def zyx_angles(R):
+    &quot;&quot;&quot;회전행렬 -&gt; Z-Y-X 오일러 각 (도). cos β &gt; 0인 답.&quot;&quot;&quot;
+    b = np.arctan2(-R[2, 0], np.hypot(R[0, 0], R[1, 0]))
+    cb = np.cos(b)
+    a = np.arctan2(R[1, 0] / cb, R[0, 0] / cb)
+    g = np.arctan2(R[2, 1] / cb, R[2, 2] / cb)
+    return np.degrees([a, b, g])
+
+def euler_params(R):
+    &quot;&quot;&quot;회전행렬 -&gt; (ε1, ε2, ε3, ε4). 가장 큰 칸부터 구한다.&quot;&quot;&quot;
+    r = R
+    sq = np.array([1 + r[0, 0] - r[1, 1] - r[2, 2],
+                   1 - r[0, 0] + r[1, 1] - r[2, 2],
+                   1 - r[0, 0] - r[1, 1] + r[2, 2],
+                   1 + r[0, 0] + r[1, 1] + r[2, 2]]) / 4
+    i = int(np.argmax(sq))            # 가장 큰 칸
+    e = np.zeros(4)
+    e[i] = np.sqrt(sq[i])
+    four = {(0, 1): r[1, 0] + r[0, 1],  # 4 εi εj
+            (0, 2): r[2, 0] + r[0, 2],
+            (1, 2): r[2, 1] + r[1, 2],
+            (0, 3): r[2, 1] - r[1, 2],
+            (1, 3): r[0, 2] - r[2, 0],
+            (2, 3): r[1, 0] - r[0, 1]}
+    for j in range(4):
+        if j != i:
+            e[j] = four[min(i, j), max(i, j)] / (4 * e[i])
+    return e
+
+np.set_printoptions(precision=3, suppress=True)
+
+# 3.2 종이 팔 (θ1 = 30°, θ2 = 60°)
+T02 = homog2(30, [0, 0]) @ homog2(60, [10, 0])
+print(T02[:2])
+# [[ 0.   -1.    8.66]
+#  [ 1.    0.    5.  ]]
+print(T02 @ [8, 0, 1])            # [ 8.66 13.    1.  ]
+# 3.3 변환 고리: 받침에서 본 컵
+T_W0 = homog2(90, [30, 10])
+T_WC = homog2(-90, [10, 40])
+T_CG = homog2(0, [16, 12])
+T_0G = inv_homog(T_W0) @ T_WC @ T_CG
+print(T_0G[:2])
+# [[-1.  0. 14.]
+#  [-0. -1.  8.]]
+loop = inv_homog(T_W0) @ T_WC @ T_CG @ inv_homog(T_0G)
+print(np.allclose(loop, np.eye(3)))  # True
+# 3.7 새 축으로 z → y = 처음 축으로 y → z
+print(rot_z(90) @ rot_y(90))
+# [[ 0. -1.  0.]
+#  [ 0.  0.  1.]
+#  [-1.  0.  0.]]
+# 3.8 거꾸로 구하기
+R = zyx(120, 30, -45)
+print(R)
+# [[-0.433 -0.436 -0.789]
+#  [ 0.75  -0.66  -0.047]
+#  [-0.5   -0.612  0.612]]
+print(zyx_angles(R))              # [120.  30. -45.]
+print(np.allclose(zyx(300, 150, 135), R))  # True (두 번째 답)
+# 3.9 β = 90°: α - γ만 같으면 같은 행렬
+print(np.allclose(zyx(50, 90, 20), zyx(40, 90, 10)))  # True
+# 3.10 강의 퀴즈: x축으로 60°
+print(euler_params(rot_x(60)))    # [0.5   0.    0.    0.866]
+# 문제 1
+T = homog2(90, [0, 0]) @ homog2(90, [10, 0])
+print(T[:2])
+# [[-1. -0.  0.]
+#  [ 0. -1. 10.]]
+print(T @ [8, 0, 1])              # [-8. 10.  1.]
+# 문제 2
+T_0H = T @ homog2(0, [8, 0])
+print((homog2(90, [12, 4]) @ inv_homog(T_0H))[:2])
+# [[ 0.  1.  2.]
+#  [-1.  0. -4.]]
+# 문제 3
+M = 0.5 * np.eye(3) + 0.5 * rot_z(90)
+print(np.linalg.norm(M[:, 0]))    # 0.7071067811865476
+# 문제 4
+print(zyx(90, 0, 90))
+# [[ 0. -0.  1.]
+#  [ 1.  0. -0.]
+#  [ 0.  1.  0.]]
+# 문제 5
+R5 = np.array([[-0.354, -0.862, -0.362],
+               [-0.612, -0.079, 0.787],
+               [-0.707, 0.500, -0.500]])
+print(zyx_angles(R5).round())     # [-120.   45.  135.]
+# 문제 6
+print(np.degrees(np.arctan2(1, 0)))  # 90.0
+print(np.degrees(np.arctan2(0.5, 0.866)).round())  # 30.0
+# 문제 7
+print(euler_params(rot_z(90)))    # [0.    0.    0.707 0.707]
+print(euler_params(rot_z(180)))   # [0. 0. 1. 0.]
+</code></pre>
+<h3>스탠퍼드 숙제</h3>
+<p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 1에서 2번과 4번은 이 장으로 풀 수 있다. 2번은 고정된 축으로 두 번 돌리는 연산자이고, 1번과 답이 같아지는 이유가 3.7절에 있다.</p>
+<p>4번은 회전행렬 확인, 각-축 표현, 오일러 파라미터를 차례로 묻는다(3.10절). 풀이는 같은 페이지의 Solution 1에 있다.</p>
+<p>다 풀었으면 <a href="https://youtu.be/Mm5Tfm04cKk">3강 영상</a>을 한 번 본다.</p>
+<div class="chapter-nav"><a href="ch2.html">← 2장. 위치와 방향을 숫자로 적기</a><a href="ch4.html">4장. 링크를 숫자 네 개로 적기: DH 파라미터 →</a></div>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+<script src="assets/figs/ch3.js"></script>
+<script>FigKit.renderAll();</script>
+</body>
+</html>

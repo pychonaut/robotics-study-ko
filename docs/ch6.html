@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6장. 관절 속도에서 손끝 속도로: 자코비안</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch5.html">← 이전 장</a><a href="ch7.html">다음 장 →</a></header>
+<main>
+<h1>6장. 관절 속도에서 손끝 속도로: 자코비안</h1>
+<!-- card: 강의 6강 · 편미분으로 만드는 자코비안, 기본 자코비안, 각속도와 외적, 속도 전파 · 연습문제와 파이썬 확인 코드 -->
+
+<p class="lead">관절을 조금 돌리면 손끝은 어느 쪽으로 얼마나 움직일까? 이 장은 그 답인 자코비안을 종이 팔로 직접 만들고, 링크에서 링크로 속도를 넘겨 같은 답을 한 번 더 얻는다. 강의 6강(71분)에 해당한다.</p>
+
+<h2>6.1 위치에서 속도로</h2>
+<p>4~5장에서는 관절 각도로 손끝의 위치와 방향을 구했다(순기구학). 이 장은 팔이 움직이는 순간을 본다. 관절이 조금 돌면 손끝도 조금 움직인다. 이 둘의 관계를 다루는 것을 <strong>순간 기구학</strong>(instantaneous kinematics)이라 한다.</p>
+<p>종이 팔로 생각해 보자. 지금 자세가 θ₁ = 30°, θ₂ = 60°다. 두 관절을 1°씩 더 돌리면 손끝은 왼쪽 위로 약 0.4 cm 간다. 관절의 작은 변화를 δθ(델타 세타), 손끝의 작은 변화를 δx라 쓴다.</p>
+<figure data-fig="fig6_1"><div class="fig-title">관절의 작은 변화가 손끝의 작은 변화를 만든다</div><div class="fig-body"></div><div class="fig-note">잘 보이게 크게 그렸다(어깨 +12°, 팔꿈치 +15°). 점선 팔이 옮긴 자세다.</div><figcaption>그림 6-1 · 관절 공간의 작은 화살표 δθ가 작업 공간의 작은 화살표 δx로 간다</figcaption></figure>
+<p>변화가 아주 작으면 둘 사이는 <strong>선형</strong>(linear) 관계다. δθ를 두 배로 하면 δx도 두 배가 된다. 관절마다 낸 몫은 그냥 더하면 된다.</p>
+<p>이런 관계는 행렬 하나로 적는다. 그 행렬이 1장에서 이름만 들은 <strong>자코비안</strong>(Jacobian) J다.</p>
+<div class="math" data-tex="\delta x = J(\theta)\,\delta\theta"></div>
+<p>J 뒤의 (θ)는 "지금 자세에 따라 숫자가 달라진다"는 뜻이다. 양변을 아주 짧은 시간 δt로 나누면 속도끼리의 관계가 된다. 글자 위의 점은 시간에 대한 변화율, 곧 속도다.</p>
+<div class="math" data-tex="\dot x = J(\theta)\,\dot\theta"></div>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 작은 변화에도, 속도에도 같은 J를 쓰는 까닭은 무엇일까?</p>
+</blockquote>
+<p>속도는 "짧은 시간 동안의 작은 변화 ÷ 그 시간"이다. δx = J δθ의 양변을 같은 δt로 나누어도 J는 그대로다. 그래서 "1°씩 더 돌리면"과 "초당 1°씩 돌리면"은 같은 표로 답한다.</p>
+<h3>손끝의 움직임은 두 가지</h3>
+<p>3차원에서 손끝은 위치와 방향을 가진다(2장). 그래서 손끝의 움직임도 두 가지로 적는다.</p>
+<ul>
+<li><strong>선속도</strong>(linear velocity) v: 손끝의 한 점이 어느 쪽으로 얼마나 빨리 가나. 숫자 3개다.</li>
+<li><strong>각속도</strong>(angular velocity) ω: 손끝이 어느 축으로 얼마나 빨리 도나. 숫자 3개다.</li>
+</ul>
+<p>둘을 합치면 숫자 6개다. 관절이 n개면 J는 6×n 행렬이 된다. 이 장은 먼저 위치(선속도)만으로 J를 만들고, 6.5절에서 방향을 더한다.</p>
+<h3>관절 변수 q</h3>
+<p>관절은 돌거나 미끄러진다(2.1절). 회전 관절이 움직이는 양은 각도 θ<sub>i</sub>, 직동 관절이 움직이는 양은 길이 d<sub>i</sub>다. 둘을 함께 <strong>관절 변수</strong> q<sub>i</sub>로 부른다.</p>
+<p>강의는 표시 ε<sub>i</sub>로 둘을 한 식에 담는다. ε<sub>i</sub>는 회전 관절이면 0, 직동 관절이면 1이다.</p>
+<div class="math" data-tex="q_i = \bar\varepsilon_i\,\theta_i + \varepsilon_i\,d_i,\qquad \bar\varepsilon_i = 1 - \varepsilon_i"></div>
+<p>관절 변수를 모은 q = (q₁, …, q<sub>n</sub>)이 2장의 일반화 좌표다. 종이 팔은 두 관절이 모두 회전 관절이라 q = (θ₁, θ₂)다.</p>
+<p>강의는 Mark Yim의 모듈 로봇 Polypod 영상(1994)으로 시작한다. 본론은 5분 43초부터다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=343">05:43 순간 기구학 시작</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=406">06:46 작은 변위 δθ와 δx</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=499">08:19 같은 행렬이 속도도 잇는다</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=722">12:02 관절 변수 q</a></p>
+<h2>6.2 편미분으로 자코비안 만들기</h2>
+<p>J의 칸을 채우는 가장 곧은 길은 순기구학 식을 미분하는 것이다. 손끝 좌표가 관절 변수의 함수라는 것은 이미 안다. 각 좌표가 각 관절에 얼마나 민감한지를 하나씩 재면 된다.</p>
+<blockquote>
+<p><strong>수학 더하기: 미분.</strong> 함수 f(θ)의 <strong>미분</strong>(derivative)은 "θ를 아주 조금 바꿀 때 f가 그 몇 배만큼 바뀌나"다. df/dθ로 쓴다. f = 3θ이면 θ가 δ만큼 늘 때 f는 3δ만큼 늘어서 df/dθ = 3이다.</p>
+<p>이 장에서 쓰는 규칙은 넷뿐이다. (1) sin θ를 미분하면 cos θ, (2) cos θ를 미분하면 −sin θ, (3) 앞에 곱한 숫자는 그대로 둔다(10 cos θ → −10 sin θ), (4) 더한 식은 따로 미분해서 더한다. (1)과 (2)는 각도를 <strong>라디안</strong>으로 잴 때만 맞는다.</p>
+</blockquote>
+<p>손끝 좌표는 관절 변수 여러 개의 함수다. 그래서 미분도 관절마다 따로 한다.</p>
+<blockquote>
+<p><strong>수학 더하기: 편미분.</strong> 변수가 여럿인 함수에서, 하나만 조금 바꾸고 나머지는 그대로 둘 때의 변화율을 <strong>편미분</strong>(partial derivative)이라 한다. ∂f/∂a처럼 둥근 ∂로 쓴다. 그대로 두는 변수는 그냥 숫자로 보고 미분한다.</p>
+<p>그림 6-2의 직사각형은 넓이가 A = a × b다. 가로만 δa 늘리면 넓이는 b × δa 늘어나므로 ∂A/∂a = b = 3이다. 세로만 늘리면 ∂A/∂b = a = 4다.</p>
+<p>둘 다 조금씩 늘리면 δA ≈ 3 δa + 4 δb다. 몫을 따로 구해 더하면 된다.</p>
+<p>종이 팔 식에 나오는 cos(θ₁ + θ₂)를 θ₁로 편미분하면 −sin(θ₁ + θ₂)다. θ₂는 숫자로 보기 때문이다.</p>
+</blockquote>
+<figure data-fig="fig6_2"><div class="fig-title">편미분 = 하나만 늘리고 나머지는 그대로 둘 때의 비율</div><div class="fig-body"></div><div class="fig-note">두 몫을 더하면 모서리 조각만큼만 틀린다. 변화가 작을수록 그 조각은 훨씬 더 빨리 작아진다.</div><figcaption>그림 6-2 · 직사각형 넓이로 보는 편미분</figcaption></figure>
+<h3>식 m개, 변수 n개</h3>
+<p>손끝 좌표가 x₁, …, x<sub>m</sub>으로 m개이고, 각각 관절 변수 n개의 함수 x<sub>i</sub> = f<sub>i</sub>(q)라 하자. 관절이 모두 조금씩 움직이면, 좌표마다 관절별 몫을 더한다. 직사각형의 δA ≈ 3 δa + 4 δb와 같은 모양이다.</p>
+<div class="math" data-tex="\begin{aligned}
+\delta x_1 &amp;= \frac{\partial f_1}{\partial q_1}\,\delta q_1 + \cdots + \frac{\partial f_1}{\partial q_n}\,\delta q_n \\
+&amp;\;\;\vdots \\
+\delta x_m &amp;= \frac{\partial f_m}{\partial q_1}\,\delta q_1 + \cdots + \frac{\partial f_m}{\partial q_n}\,\delta q_n
+\end{aligned}"></div>
+<p>이 m개의 식을 매번 적기는 번거롭다. δq의 계수만 모아 표로 만들면 행렬 하나가 된다.</p>
+<div class="math" data-tex="\delta x = J(q)\,\delta q,\qquad
+J(q) = \begin{bmatrix} \dfrac{\partial f_1}{\partial q_1} &amp; \cdots &amp; \dfrac{\partial f_1}{\partial q_n} \\ \vdots &amp; &amp; \vdots \\ \dfrac{\partial f_m}{\partial q_1} &amp; \cdots &amp; \dfrac{\partial f_m}{\partial q_n} \end{bmatrix}"></div>
+<p>i행 j열 칸은 J<sub>ij</sub> = ∂f<sub>i</sub>/∂q<sub>j</sub>다. 행은 손끝 좌표, 열은 관절이라서 J는 m×n 행렬이다.</p>
+<p>강의에서 교수는 "첫 열은 어디 있나?"라고 묻는다. 모든 식에서 δq₁ 앞에 붙은 계수를 위에서 아래로 모은 것이 첫 열이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=783">13:03 순기구학 식을 미분한다</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=884">14:44 식 m개, 변수 n개</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=951">15:51 첫 열은 무엇인가</a></p>
+<h2>6.3 종이 팔의 자코비안</h2>
+<p>강의 예제와 같은 2관절 평면 팔이다. 강의는 링크 길이를 l₁, l₂로 두지만, 여기서는 종이 팔의 10 cm, 8 cm를 넣는다. 손끝 위치 (x, y)만 보므로 m = 2, n = 2다.</p>
+<p>식을 짧게 쓰려고 s₁ = sin θ₁, c₁ = cos θ₁, s₁₂ = sin(θ₁ + θ₂), c₁₂ = cos(θ₁ + θ₂)로 줄여 쓴다. 이 줄임은 교재와 강의에서 계속 쓴다.</p>
+<div class="math" data-tex="x = 10\,c_1 + 8\,c_{12},\qquad y = 10\,s_1 + 8\,s_{12}"></div>
+<h3>네 칸을 하나씩</h3>
+<ol>
+<li>∂x/∂θ₁: θ₂는 숫자로 본다. c₁ → −s₁, c₁₂ → −s₁₂이므로 −10s₁ − 8s₁₂다.</li>
+<li>∂x/∂θ₂: 10c₁에는 θ₂가 없어서 0이다. c₁₂ → −s₁₂이므로 −8s₁₂다.</li>
+<li>∂y/∂θ₁: s₁ → c₁, s₁₂ → c₁₂이므로 10c₁ + 8c₁₂다.</li>
+<li>∂y/∂θ₂: 10s₁은 0이 되고 8c₁₂만 남는다.</li>
+</ol>
+<div class="math" data-tex="J(\theta) = \begin{bmatrix} \partial x/\partial\theta_1 &amp; \partial x/\partial\theta_2 \\ \partial y/\partial\theta_1 &amp; \partial y/\partial\theta_2 \end{bmatrix}"></div>
+<div class="math" data-tex="J(\theta) = \begin{bmatrix} -10s_1 - 8s_{12} &amp; -8s_{12} \\ 10c_1 + 8c_{12} &amp; 8c_{12} \end{bmatrix}"></div>
+<h3>열 하나 = 관절 하나</h3>
+<p>2.5절에서 행렬 × 벡터는 "벡터의 숫자만큼 열을 섞어 더하기"였다. 그래서 ẋ = J θ̇를 열로 풀어 쓸 수 있다.</p>
+<div class="math" data-tex="\dot x = \dot\theta_1 \begin{bmatrix} -10s_1 - 8s_{12} \\ 10c_1 + 8c_{12}\end{bmatrix} + \dot\theta_2 \begin{bmatrix} -8s_{12} \\ 8c_{12}\end{bmatrix}"></div>
+<p>첫 열은 어깨만 1 rad/s로 돌 때의 손끝 속도다. 둘째 열은 팔꿈치만 1 rad/s로 돌 때의 손끝 속도다. <strong>자코비안의 열 하나는 관절 하나가 손끝을 미는 속도다.</strong> 손끝 속도는 그 둘을 관절 속도만큼 섞어 더한 것이다.</p>
+<figure data-fig="fig6_3"><div class="fig-title">손끝 속도 = 1열 × θ̇₁ + 2열 × θ̇₂</div><div class="fig-body"></div><div class="fig-note">파랑은 어깨의 몫, 주황은 팔꿈치의 몫, 검정은 둘을 더한 손끝 속도 ẋ다. 점선 호는 관절 하나만 돌 때 손끝이 지나는 원이다. 속도 슬라이더의 단위는 rad/s다.</div><figcaption>그림 6-3 · 직접 돌려 보기: 종이 팔의 자코비안</figcaption></figure>
+<p>해 볼 것 세 가지:</p>
+<ol>
+<li>θ̇₁ = 1, θ̇₂ = 0으로 둔다. 파란 화살표가 J의 첫 열 그대로다. 어깨를 중심으로 손끝을 지나는 원(파란 점선)의 접선 방향이다.</li>
+<li>θ̇₁ = 0, θ̇₂ = 1로 둔다. 주황 화살표가 둘째 열이다. 팔꿈치를 중심으로 한 반지름 8 cm 원의 접선이고, 길이는 언제나 8이다.</li>
+<li>θ₂ = 0°로 팔을 쭉 편다. 두 화살표가 한 줄에 겹친다. 어떻게 섞어도 손끝을 팔 길이 방향으로는 밀 수 없다. 1.4절의 특이점이다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 첫 열 (−10s₁ − 8s₁₂, 10c₁ + 8c₁₂)를 손끝 위치 (x, y)와 견주어 보자. 무엇이 보이나?</p>
+</blockquote>
+<p>첫 열은 (−y, x)다. 강의도 이 점을 짚는다. (x, y)를 90° 돌린 화살표라서, 어깨에서 손끝까지 그은 선과 수직이고 길이도 같다.</p>
+<p>어깨가 돌면 손끝은 어깨를 중심으로 원을 그린다. 그 원의 접선 방향이 첫 열이다. 6.6절에서 이것이 외적이라는 것을 본다.</p>
+<h3>숫자로 해 보기</h3>
+<p>θ₁ = 30°, θ₂ = 60°이면 s₁ = 0.5, c₁ ≈ 0.866, s₁₂ = sin 90° = 1, c₁₂ = 0이다. 손끝은 (8.66, 13) cm다.</p>
+<div class="math" data-tex="J = \begin{bmatrix} -10(0.5) - 8(1) &amp; -8(1) \\ 10(0.866) + 8(0) &amp; 8(0)\end{bmatrix} = \begin{bmatrix} -13 &amp; -8 \\ 8.66 &amp; 0 \end{bmatrix}"></div>
+<p>첫 열이 (−y, x) = (−13, 8.66)으로 맞는다. 어깨를 0.5 rad/s, 팔꿈치를 1 rad/s로 돌리면 손끝 속도는 이렇다.</p>
+<div class="math" data-tex="\dot x = 0.5\begin{bmatrix}-13\\8.66\end{bmatrix} + 1\begin{bmatrix}-8\\0\end{bmatrix} = \begin{bmatrix}-14.5\\4.33\end{bmatrix}\ \text{cm/s}"></div>
+<p>그림 6-3의 처음 값이 바로 이 자세와 속도다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 단위를 보자. θ̇는 rad/s, J의 칸은 cm/rad, ẋ는 cm/s다. 관절 속도를 °/s로 받았다면 먼저 π/180을 곱해 rad/s로 바꾼다. 서보 사양표의 "60°에 0.1초"는 초당 600°, 약 10.5 rad/s다.</p>
+</blockquote>
+<h3>작을 때만 맞는다</h3>
+<p>δx = J δθ는 변화가 작을 때의 근사다. 실제 손끝은 원호를 따라 휘어 가는데, J는 지금 이 순간의 접선 방향만 안다. 아래 그림에서 얼마나 벌어지는지 보자.</p>
+<figure data-fig="fig6_4"><div class="fig-title">J는 지금 이 순간의 방향만 안다</div><div class="fig-body"></div><div class="fig-note">처음 자세는 θ₁ = 30°, θ₂ = 60°(회색 팔)이고, 파란 팔이 옮긴 자세다. 파란 점선은 손끝이 실제로 지나는 길이다.</div><figcaption>그림 6-4 · 직접 돌려 보기: 실제 이동과 J δθ 예측</figcaption></figure>
+<p>두 관절을 1°씩 돌리면 예측과 실제의 차이는 0.006 cm(1.5%)다. 10°씩이면 0.57 cm(15%), 30°씩이면 4.9 cm(46%)까지 벌어진다.</p>
+<p>그래서 자세가 바뀌면 J를 새로 계산한다. "순간" 기구학이라는 이름이 여기서 나온다.</p>
+<h3>거꾸로 쓰기: 손끝을 조금 옮기고 싶을 때</h3>
+<p>로봇에게는 보통 거꾸로 묻는다. "손끝을 이만큼 옮기려면 관절을 얼마나 돌려야 하나?" J의 <strong>역행렬</strong> J⁻¹(2.7절)을 쓰면 δθ = J⁻¹ δx다. 강의에 따르면 많은 산업용 로봇이 이렇게 작은 걸음을 이어 붙여 손끝을 움직인다.</p>
+<p>위 자세에서 손끝을 왼쪽(−x)으로 0.4 cm 옮기고 싶다고 하자. 둘째 열이 (−8, 0)이라서 팔꿈치만 0.05 rad(약 2.9°) 더 돌리면 된다. 역행렬로 계산해도 같은 답이 나온다(연습문제 3). 그림 6-3에서 팔을 쭉 펴면 역행렬이 없어 이 방법이 막힌다. 7장에서 다룬다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=1081">18:01 2관절 평면 팔 예제</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=1177">19:37 첫 열은 (−y, x)</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=1240">20:40 역행렬로 로봇 움직이기</a></p>
+<h2>6.4 강의 예제: Scheinman 팔의 위치 자코비안</h2>
+<p>이제 3차원 팔로 넓힌다. 강의는 5강에서 순기구학을 구한 <strong>스탠퍼드 Scheinman 팔</strong>을 다시 쓴다(5장). 관절 6개 가운데 셋째가 직동 관절이다. 앞의 세 관절이 손목을 옮기고, 뒤의 세 관절은 축이 한 점에서 만나 손목을 돌린다.</p>
+<p>손끝 위치로는 세 손목 축이 만나는 <strong>손목점</strong>(5장의 손목 중심)을 잡는다. 강의 유인물의 순기구학에서 손목점은 이렇다. d₂는 어깨가 옆으로 비켜난 간격, d₃는 팔이 늘어난 길이다.</p>
+<div class="math" data-tex="p = \begin{bmatrix} x\\y\\z \end{bmatrix} = \begin{bmatrix} c_1 s_2 d_3 - s_1 d_2 \\ s_1 s_2 d_3 + c_1 d_2 \\ c_2 d_3 \end{bmatrix}"></div>
+<p>여섯 관절 변수 q = (θ₁, θ₂, d₃, θ₄, θ₅, θ₆)로 차례로 편미분한다.</p>
+<ul>
+<li><strong>1열</strong>(θ₁로): (−s₁s₂d₃ − c₁d₂, c₁s₂d₃ − s₁d₂, 0) = (−y, x, 0)이다. 종이 팔의 첫 열과 같은 모양이다. 받침 축 z₀ 둘레로 수평으로 도는 원의 접선이다.</li>
+<li><strong>2열</strong>(θ₂로): (c₁c₂d₃, s₁c₂d₃, −s₂d₃)이다. 팔이 숙여지는 방향이고 길이는 d₃다.</li>
+<li><strong>3열</strong>(d₃로): (c₁s₂, s₁s₂, c₂)이다. 팔이 뻗은 방향의 단위벡터다. 직동 관절은 손목점을 팔 방향으로 곧게 민다.</li>
+<li><strong>4~6열</strong>: 모두 0이다. 손목을 돌려도 손목점은 제자리다.</li>
+</ul>
+<div class="math" data-tex="J_v = \begin{bmatrix}
+-y &amp; c_1 c_2 d_3 &amp; c_1 s_2 &amp; 0 &amp; 0 &amp; 0\\
+x &amp; s_1 c_2 d_3 &amp; s_1 s_2 &amp; 0 &amp; 0 &amp; 0\\
+0 &amp; -s_2 d_3 &amp; c_2 &amp; 0 &amp; 0 &amp; 0
+\end{bmatrix}"></div>
+<figure data-fig="fig6_5"><div class="fig-title">손목점은 앞의 세 관절로만 움직인다</div><div class="fig-body"></div><div class="fig-note">점선은 관절 하나만 움직일 때 손목점이 지나는 길이다. ①과 ②는 같은 비율로, ③은 방향만 그렸다.</div><figcaption>그림 6-5 · Scheinman 팔의 손목점과 J<sub>v</sub>의 세 열</figcaption></figure>
+<p>2열의 길이가 d₃인 까닭도 그림에서 보인다. θ₂만 돌면 손목점은 어깨 축을 중심으로 반지름 d₃인 원을 그린다. 팔을 길게 뺄수록 같은 θ̇₂에 손목이 빨리 움직인다.</p>
+<h3>방향은?</h3>
+<p>위치는 쉬웠다. 방향은 어떨까.</p>
+<p>2장처럼 회전행렬의 세 열 r₁, r₂, r₃(방향 코사인)로 적으면 숫자가 9개다. 9개를 관절 변수 6개로 하나하나 편미분하면 9×6, 위치와 합치면 12×6 행렬이 된다.</p>
+<p>교수는 "5분 줄 테니 해 보라"고 했다가 곧 거둔다. 칸이 너무 많기도 하지만, 더 큰 문제가 있다.</p>
+<p>다 구해도 그 행렬에서 팔의 성질을 읽어 내기 어렵다. 다음 절에서 그 까닭을 본다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=1278">21:18 Scheinman 팔</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=1342">22:22 첫 열 구하기</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=1537">25:37 4~6열은 0</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=1568">26:08 방향 코사인을 미분하면</a></p>
+<h2>6.5 적는 방법이 끼어든다: 기본 자코비안</h2>
+<p>방향 좌표를 그대로 미분해 만든 자코비안에는 우리가 고른 <strong>표현</strong>(representation)의 성질이 섞여 든다. 행렬의 크기도 표현에 따라 바뀐다. 문제를 평면에서 먼저 보자.</p>
+<h3>평면에서 보는 같은 문제</h3>
+<p>종이 팔의 손끝을 (x, y) 대신 극좌표 (r, φ)로 적었다고 하자. r은 받침에서의 거리, φ는 받침에서 본 방향 각이다. (r, φ)를 θ로 편미분해도 자코비안은 나온다. 그런데 그 변화율 (ṙ, φ̇)는 손끝의 속도가 아니다.</p>
+<figure data-fig="fig6_6"><div class="fig-title">같은 속도인데 φ̇는 r에 따라 다르다</div><div class="fig-body"></div><div class="fig-note">네 점 모두 받침에서 본 방향과 수직으로 1 cm/s씩 움직인다. 방향 각의 변화율은 φ̇ = 1/r이라서 받침에 가까울수록 커진다.</div><figcaption>그림 6-6 · 극좌표로 적은 손끝</figcaption></figure>
+<p>ṙ은 속도를 받침 쪽 방향에 내린 그림자(내적, 2.6절)다. φ̇는 그와 수직인 방향의 그림자를 r로 나눈 것이다. 둘을 행렬로 쓰면 이렇다.</p>
+<div class="math" data-tex="\begin{bmatrix}\dot r\\ \dot\varphi\end{bmatrix} = \underbrace{\begin{bmatrix}\cos\varphi &amp; \sin\varphi \\ -\sin\varphi/r &amp; \cos\varphi/r\end{bmatrix}}_{E_P}\begin{bmatrix}v_x\\ v_y\end{bmatrix}"></div>
+<p>손끝 속도가 그대로여도 r이 0에 다가가면 φ̇는 끝없이 커진다. r = 0에서는 φ를 정할 수조차 없다.</p>
+<p>팔에는 아무 문제가 없다. 우리가 고른 적는 방법의 문제이고, 3장에서 본 "표현의 특이점"과 같은 일이다.</p>
+<h3>3차원 방향은 더 그렇다</h3>
+<p>3장의 오일러 각 (α, β, γ)도 마찬가지다. 변화율 (α̇, β̇, γ̇)는 각속도 ω가 아니다. 세 회전은 서로 다른 축을 쓰고, 그 축들이 각도에 따라 움직이기 때문이다.</p>
+<p>둘은 각도에만 달린 3×3 행렬 E<sub>R</sub>로 이어진다. 이 행렬에는 표현의 특이점에서 0으로 나누는 칸이 생긴다.</p>
+<p>3장의 Z-Y-X 오일러 각이라면 cos β = 0(짐벌 잠금)일 때다. 강의 유인물이 쓴 다른 순서의 오일러 각에서는 sin β = 0일 때다. 그 자세에서 팔은 멀쩡히 움직여도 각도의 변화율은 정할 수 없다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 종이 팔의 손 방향은 각도 하나 φ = θ₁ + θ₂다. 이때 φ̇는 각속도 ω와 같을까?</p>
+</blockquote>
+<p>같다. 평면에서는 모든 회전이 책상에 수직인 같은 축(z)을 쓴다. 각도가 그냥 더해지므로 φ̇ = θ̇₁ + θ̇₂ = ω<sub>z</sub>다.</p>
+<p>3차원에서는 축이 저마다 달라서 이렇게 되지 않는다.</p>
+<h3>해결: 표현과 상관없는 J₀</h3>
+<p>그래서 강의는 표현을 빼고, 손끝의 움직임 그 자체인 v와 ω로 자코비안을 정한다. 이것을 <strong>기본 자코비안</strong>(basic Jacobian) J₀라 한다. 위 세 줄 J<sub>v</sub>는 선속도, 아래 세 줄 J<sub>ω</sub>는 각속도를 맡는다.</p>
+<div class="math" data-tex="\begin{bmatrix} v \\ \omega \end{bmatrix} = J_0(q)\,\dot q,\qquad J_0 = \begin{bmatrix} J_v \\ J_\omega \end{bmatrix}\quad (6\times n)"></div>
+<p>어떤 표현 x = (x<sub>P</sub>, x<sub>R</sub>)를 쓰든, 그 변화율은 v, ω와 행렬로 이어진다. ẋ<sub>P</sub> = E<sub>P</sub> v, ẋ<sub>R</sub> = E<sub>R</sub> ω다. 그래서 그 표현의 자코비안 J<sub>x</sub>는 J₀ 앞에 E를 곱하면 나온다.</p>
+<div class="math" data-tex="J_x(q) = E(x)\,J_0(q),\qquad E = \begin{bmatrix} E_P &amp; 0 \\ 0 &amp; E_R \end{bmatrix}"></div>
+<ul>
+<li>위치를 직교 좌표 (x, y, z)로 적으면 E<sub>P</sub>는 단위행렬이다. 위치의 변화율이 곧 선속도다.</li>
+<li>원통 좌표, 구면 좌표의 E<sub>P</sub>와 오일러 각의 E<sub>R</sub>는 한 번 구해 표로 두고 꺼내 쓴다. 팔과는 상관없이 표현만으로 정해진다.</li>
+</ul>
+<p>종이 팔의 기본 자코비안은 v<sub>x</sub>, v<sub>y</sub>, ω<sub>z</sub> 세 줄짜리 3×2 행렬이다(나머지 줄은 0). θ₁ = 30°, θ₂ = 60°에서는 이렇다.</p>
+<div class="math" data-tex="\begin{bmatrix} v_x \\ v_y \\ \omega_z \end{bmatrix} = \begin{bmatrix} -13 &amp; -8 \\ 8.66 &amp; 0 \\ 1 &amp; 1 \end{bmatrix}\begin{bmatrix}\dot\theta_1\\ \dot\theta_2\end{bmatrix}"></div>
+<p><strong>앞으로 "자코비안"이라 하면 J₀를 뜻하고, 0을 떼고 J로 쓴다.</strong> 남은 일은 v와 ω를 q̇로 적는 것이다. 다음 두 절에서 그 도구인 외적을 준비한다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=1697">28:17 표현이 섞여 든다</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=1792">29:52 기본 자코비안: v와 ω</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=1855">30:55 각도의 미분은 각속도가 아니다</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=2010">33:30 J<sub>x</sub> = E J₀</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=2240">37:20 오일러 각의 특이점</a></p>
+<h2>6.6 점의 속도: 더하기와 ω × p</h2>
+<p>v와 ω를 관절 속도로 적으려면 먼저 점 하나의 속도를 제대로 다뤄야 한다. 움직이는 것 위에서 또 움직이는 점, 그리고 도는 물체 위의 점이다.</p>
+<h3>무엇에 대해 잰 속도인가</h3>
+<p>속도를 말할 때는 두 가지를 구분한다. 하나는 <strong>무엇에 대해 잰 속도인가</strong>이고, 다른 하나는 그 화살표를 <strong>어느 좌표계의 숫자로 적었나</strong>다.</p>
+<p>강의는 v<sub>P/A</sub>처럼 써서 "{A}에 대해 잰 점 P의 속도"를 밝힌다. 이 화살표 하나를 {A}의 숫자로도, {B}의 숫자로도 적을 수 있다.</p>
+<p>무빙워크가 바닥에 대해 1 m/s로 가고, 그 위에서 사람이 1.5 m/s로 걷는다. 바닥에 대한 사람의 속도는 2.5 m/s다. {A}가 돌지 않고 옮겨 가기만 하면 속도는 그냥 더한다.</p>
+<div class="math" data-tex="v_{P/B} = v_{A/B} + v_{P/A}"></div>
+<h3>각속도는 화살표다</h3>
+<p>각속도 ω도 화살표 하나로 적는다. 방향은 회전축이고, 길이는 도는 빠르기(rad/s)다.</p>
+<p>축의 어느 쪽을 가리킬지는 오른손으로 정한다. 오른손 네 손가락을 도는 방향으로 감으면 엄지가 ω의 방향이다. 책상 위에서 반시계 방향으로 도는 종이 팔의 링크는 ω가 책상 위쪽(+z)을 향한다.</p>
+<h3>도는 물체 위의 점</h3>
+<p>사과를 꼬챙이에 꿰어 돌린다고 하자. 꼬챙이 위의 점은 움직이지 않는다. 꼬챙이에서 멀리 있는 점일수록 빨리 돈다. 점 P의 속도를 구하려면, 축 위에 움직이지 않는 원점 O를 잡고 P까지 화살표 p를 긋는다.</p>
+<figure data-fig="fig6_7"><div class="fig-title">축에서 멀수록 빠르고, 방향은 ω와 p 모두에 수직이다</div><div class="fig-body"></div><div class="fig-note">O는 축 위에 잡은 원점이다. P는 축 둘레로 점선 원을 그리고, 그 반지름이 축까지의 거리다.</div><figcaption>그림 6-7 · 축 둘레로 도는 물체 위의 점 P</figcaption></figure>
+<p>그림에서 세 가지를 읽는다.</p>
+<ol>
+<li>속력은 |ω|에 비례한다. 빨리 돌수록 빠르다.</li>
+<li>속력은 축까지의 거리에 비례한다. 그 거리는 |p| sin φ다(φ는 축과 p 사이의 각).</li>
+<li>방향은 ω와도, p와도 수직이다. 점은 원의 접선 방향으로 간다.</li>
+</ol>
+<p>크기가 |ω| |p| sin φ이고, 방향이 두 화살표 모두에 수직이다. 이 둘을 한꺼번에 해 주는 계산이 외적이다.</p>
+<blockquote>
+<p><strong>수학 더하기: 외적.</strong> 두 3차원 벡터 a, b의 <strong>외적</strong>(cross product) a × b는 벡터다. 방향은 a와 b 모두에 수직이고, 오른손 네 손가락을 a에서 b 쪽으로 감을 때 엄지 쪽이다. 길이는 |a| |b| sin φ로, a와 b가 만드는 평행사변형의 넓이와 같다(그림 6-8).</p>
+<p>계산은 a × b = (a<sub>y</sub>b<sub>z</sub> − a<sub>z</sub>b<sub>y</sub>, a<sub>z</sub>b<sub>x</sub> − a<sub>x</sub>b<sub>z</sub>, a<sub>x</sub>b<sub>y</sub> − a<sub>y</sub>b<sub>x</sub>)다. 예: x 방향 (1, 0, 0) × y 방향 (0, 1, 0) = (0, 0, 1), z 방향이다.</p>
+<p>순서를 바꾸면 방향이 뒤집힌다(b × a = −a × b). 나란한 두 벡터의 외적은 0이다.</p>
+</blockquote>
+<figure data-fig="fig6_8"><div class="fig-title">외적 a × b는 두 화살표에 수직이고, 길이는 평행사변형 넓이다</div><div class="fig-body"></div><figcaption>그림 6-8 · 외적과 오른손 법칙</figcaption></figure>
+<p>그래서 도는 물체 위의 점의 속도는 한 줄로 적힌다.</p>
+<div class="math" data-tex="v_P = \omega \times p"></div>
+<p>순서가 중요하다. ω × p이지 p × ω가 아니다. 거꾸로 쓰면 방향이 반대가 된다.</p>
+<p>8장에서는 힘으로 토크를 만드는 τ = p × F가 나온다. 거기서는 p가 앞에 온다.</p>
+<p>숫자로 해 보자. ω = (0, 0, 2) rad/s이고 p = (3, 1, 0) cm다.</p>
+<div class="math" data-tex="\omega\times p = \begin{bmatrix} 0\cdot0 - 2\cdot1 \\ 2\cdot3 - 0\cdot0 \\ 0\cdot1 - 0\cdot3 \end{bmatrix} = \begin{bmatrix}-2\\6\\0\end{bmatrix}\ \text{cm/s}"></div>
+<p>속력은 √40 ≈ 6.32 cm/s다. p가 축과 수직이라 sin φ = 1이고, 2 × |p| = 2 × √10과 같다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 지구는 자전한다. 북극점에 선 사람의 속도는 얼마일까? 적도에 선 사람은?</p>
+</blockquote>
+<p>북극점은 자전축 위에 있어서 속도가 0이다. 적도는 축에서 가장 멀어 가장 빠르다. 하루에 둘레 약 4만 km를 돌아서 시속 약 1,670 km다.</p>
+<h3>종이 팔에서 다시 보기</h3>
+<p>종이 팔의 어깨만 θ̇₁로 돌면 ω = (0, 0, θ̇₁)이다. 손끝 p = (x, y, 0)의 속도는 다음과 같다.</p>
+<div class="math" data-tex="\omega\times p = \begin{bmatrix} 0\cdot0 - \dot\theta_1\,y \\ \dot\theta_1\,x - 0\cdot0 \\ 0 \end{bmatrix} = \dot\theta_1\begin{bmatrix}-y\\x\\0\end{bmatrix}"></div>
+<p>6.3절에서 편미분으로 구한 첫 열 (−y, x)가 그대로 나왔다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=2397">39:57 무엇에 대해 잰 속도인가</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=2528">42:08 속도는 더한다</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=2593">43:13 축 위의 점은 움직이지 않는다</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=2847">47:27 ω × p, p × ω가 아니다</a></p>
+<h2>6.7 외적을 행렬로, 이동과 회전을 함께</h2>
+<p>외적은 계산하기 쉽지만 행렬 식 속에 넣기는 불편하다. 그래서 "a ×"를 행렬 하나로 바꿔 둔다. 이것을 <strong>외적 연산자</strong>(cross product operator)라 하고, 글자 위에 모자를 씌워 â로 쓴다.</p>
+<div class="math" data-tex="a\times b = \hat a\,b,\qquad \hat a = \begin{bmatrix} 0 &amp; -a_z &amp; a_y \\ a_z &amp; 0 &amp; -a_x \\ -a_y &amp; a_x &amp; 0 \end{bmatrix}"></div>
+<p>â b를 행과 곱해 보면 외적 계산 규칙과 칸 하나하나가 같다. 이 행렬은 모양이 특별하다.</p>
+<ul>
+<li>대각선이 모두 0이다.</li>
+<li>대각선을 사이에 두고 마주 보는 칸은 부호만 반대다. 그래서 전치하면 부호가 뒤집힌다: âᵀ = −â. 이런 행렬을 <strong>반대칭 행렬</strong>(skew-symmetric matrix)이라 한다.</li>
+</ul>
+<p>6.6절의 예를 행렬로 다시 하면 같은 답이 나온다.</p>
+<div class="math" data-tex="\hat\omega\,p = \begin{bmatrix} 0 &amp; -2 &amp; 0 \\ 2 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 0 \end{bmatrix}\begin{bmatrix}3\\1\\0\end{bmatrix} = \begin{bmatrix}-2\\6\\0\end{bmatrix}"></div>
+<blockquote>
+<p><strong>알아 두기.</strong> 평면에서 ω = (0, 0, ω)이면 ω̂의 왼쪽 위 2×2는 [[0, −ω], [ω, 0]]이다. 2.5절의 90° 회전행렬 [[0, −1], [1, 0]]에 ω를 곱한 것이다.</p>
+<p>평면에서 "ω ×"는 "90° 돌리고 ω배 늘이기"와 같다. 종이 팔의 첫 열 (−y, x)가 (x, y)를 90° 돌린 것인 까닭이다.</p>
+</blockquote>
+<h3>이동과 회전을 함께</h3>
+<p>이제 {A}가 {B}에 대해 옮겨 가면서 돌기도 한다고 하자. {A}의 원점은 v<sub>A/B</sub>로 가고, {A}는 각속도 Ω로 돈다. 점 P는 {A} 안에서 v<sub>P/A</sub>로 움직이고, {A}의 원점에서 P까지가 p다. {B}에서 본 P의 속도는 세 몫의 합이다.</p>
+<div class="math" data-tex="v_{P/B} = v_{A/B} + v_{P/A} + \Omega \times p"></div>
+<p>첫 몫은 원점이 옮겨 가는 것, 둘째는 P가 {A} 안에서 움직이는 것, 셋째는 {A}가 돌면서 P를 끌고 가는 것이다. 숫자로 계산할 때는 세 화살표를 같은 좌표계의 숫자로 맞춘다. {B}의 숫자로 적으면 이렇다.</p>
+<div class="math" data-tex="{}^{B}v_{P} = {}^{B}v_{A\,org} + {}^{B}_{A}R\;{}^{A}v_{P} + {}^{B}\Omega_{A} \times \left({}^{B}_{A}R\;{}^{A}P\right)"></div>
+<p>예를 들어 턴테이블이 바닥에 대해 0.5 rad/s로 돈다. 중심에서 4 cm인 곳에서 개미가 바깥쪽으로 1 cm/s로 걷는다.</p>
+<p>중심은 움직이지 않으니 첫 몫은 0이고, 둘째 몫은 바깥쪽 1 cm/s다. 셋째 몫은 원 둘레 방향으로 0.5 × 4 = 2 cm/s다. 바닥에서 본 개미의 속력은 √(1² + 2²) ≈ 2.24 cm/s다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 더하는 화살표는 모두 같은 좌표계의 숫자로 적어야 한다. {A}의 숫자로 적힌 것은 회전행렬을 곱해 {B}의 숫자로 바꾼 뒤 더한다. 2.8절의 "더하기 전에 같은 방향으로 돌려 놓는다"와 같은 규칙이다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=2908">48:28 외적을 행렬로</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=2942">49:02 반대칭 행렬</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=3037">50:37 이동과 회전을 함께</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=3070">51:10 같은 좌표계로 맞추기</a></p>
+<h2>6.8 링크에서 링크로: 속도 전파</h2>
+<p>이제 팔에 적용한다. 받침은 멈춰 있다. 링크 1은 관절 1만큼 돌고, 링크 2는 링크 1에 실려 가면서 관절 2만큼 더 돈다.</p>
+<p>받침에서 시작해 링크마다 v와 ω를 한 칸씩 넘기면 손끝의 v와 ω가 나온다. 이것을 <strong>속도 전파</strong>(velocity propagation)라 한다.</p>
+<h3>규칙 두 개</h3>
+<p>좌표계 {i}의 원점 속도 v<sub>i</sub>와 링크 i의 각속도 ω<sub>i</sub>를 안다고 하자. p<sub>i+1</sub>은 {i}의 원점에서 {i+1}의 원점까지의 화살표, Ẑ<sub>i+1</sub>은 관절 i+1의 축 방향(길이 1)이다.</p>
+<div class="math" data-tex="\omega_{i+1} = \omega_i + \bar\varepsilon_{i+1}\,\dot\theta_{i+1}\,\hat Z_{i+1}"></div>
+<div class="math" data-tex="v_{i+1} = v_i + \omega_i \times p_{i+1} + \varepsilon_{i+1}\,\dot d_{i+1}\,\hat Z_{i+1}"></div>
+<ul>
+<li><strong>각속도</strong>: 앞 링크의 ω에 이번 관절의 회전 θ̇Ẑ를 더한다. 직동 관절이면 더할 것이 없다.</li>
+<li><strong>선속도</strong>: 앞 원점의 속도에, 앞 링크가 돌아서 생기는 몫 ω<sub>i</sub> × p<sub>i+1</sub>을 더한다. 직동 관절이면 축 방향으로 미는 몫 ḋẐ도 더한다.</li>
+<li><strong>출발</strong>: 받침은 멈춰 있으므로 v₀ = 0, ω₀ = 0이다.</li>
+</ul>
+<p>θ̇<sub>i+1</sub>Ẑ<sub>i+1</sub>은 내적이 아니다. 숫자 θ̇를 화살표 Ẑ에 곱한 것이다. 강의에서 학생이 헷갈려 물은 부분이다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 선속도 식에는 왜 ω<sub>i+1</sub>이 아니라 ω<sub>i</sub>가 들어갈까?</p>
+</blockquote>
+<p>{i+1}의 원점은 관절 i+1의 축 위에 있다(4장의 좌표계 붙이는 규칙). 6.6절의 꼬챙이처럼, 축 위의 점은 그 축으로 돌아도 움직이지 않는다. 그래서 관절 i+1의 회전은 그 원점의 속도를 바꾸지 못하고, 앞 링크의 회전 ω<sub>i</sub>만 영향을 준다.</p>
+<h3>종이 팔로 해 보기</h3>
+<p>어깨에 {1}, 팔꿈치에 {2}, 손끝에 {3}을 둔다. 손끝에는 관절이 없으니 {3}은 링크 2에 붙어 같이 간다. 모든 축은 책상에 수직인 ẑ이고, 화살표는 모두 받침 {0}의 숫자로 적는다.</p>
+<ol>
+<li><strong>링크 1</strong>: ω₁ = θ̇₁ ẑ다. 어깨는 받침 축 위라 v₁ = 0이다.</li>
+<li><strong>팔꿈치</strong>: v₂ = v₁ + ω₁ × p₁₂ = θ̇₁ (−10s₁, 10c₁)다. 링크 2는 ω₂ = (θ̇₁ + θ̇₂) ẑ로 돈다.</li>
+<li><strong>손끝</strong>: v₃ = v₂ + ω₂ × p₂₃ = θ̇₁ (−10s₁, 10c₁) + (θ̇₁ + θ̇₂)(−8s₁₂, 8c₁₂)다. 관절이 없으니 ω₃ = ω₂다.</li>
+</ol>
+<p>v₃를 θ̇₁, θ̇₂끼리 묶어 정리하면 이렇다.</p>
+<div class="math" data-tex="v_3 = \begin{bmatrix} -10s_1 - 8s_{12} &amp; -8s_{12} \\ 10c_1 + 8c_{12} &amp; 8c_{12}\end{bmatrix}\begin{bmatrix}\dot\theta_1\\ \dot\theta_2\end{bmatrix}"></div>
+<div class="math" data-tex="\omega_{3z} = \dot\theta_1 + \dot\theta_2 = \begin{bmatrix}1 &amp; 1\end{bmatrix}\begin{bmatrix}\dot\theta_1\\ \dot\theta_2\end{bmatrix}"></div>
+<p>ω<sub>3z</sub>는 ω₃의 z 성분이다(x, y 성분은 0). 6.3절의 J, 6.5절의 맨 아래 줄 (1, 1)과 똑같다. 자코비안은 속도 전파의 식 속에 숨어 있다. θ̇를 밖으로 꺼내면 남는 것이 J의 열이다.</p>
+<figure data-fig="fig6_9"><div class="fig-title">팔꿈치 속도에 링크 2의 회전 몫을 더하면 손끝 속도다</div><div class="fig-body"></div><div class="fig-note">파랑은 팔꿈치 속도 v₂(손끝으로 옮겨 그린 점선도 같은 화살표), 주황은 링크 2가 ω₂로 돌아서 생기는 몫, 검정은 손끝 속도 v₃다. 관절의 굽은 화살표는 링크의 각속도다.</div><figcaption>그림 6-9 · 직접 돌려 보기: 받침에서 손끝으로 속도 넘기기</figcaption></figure>
+<p>그림 6-3과 슬라이더 값을 같게 두면 검은 화살표도 같다. 그림 6-3은 손끝 속도를 관절별로 나누고, 그림 6-9는 링크별로 나눈다. 나누는 방법만 다르고 합은 같다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> θ̇₁ = 1, θ̇₂ = −1 rad/s로 두면 링크 2는 어떻게 움직일까? 손끝 속도는?</p>
+</blockquote>
+<p>ω₂ = 1 − 1 = 0이라서 링크 2는 돌지 않고 방향을 지킨 채 옮겨 간다. 주황 몫이 0이 되어 손끝 속도는 팔꿈치 속도와 같다. θ₁ = 30°이면 (−5, 8.66) cm/s이고, J에 (1, −1)을 곱해도 같다.</p>
+<h3>좌표계마다 적기 (강의의 식)</h3>
+<p>위에서는 모든 화살표를 받침 {0}의 숫자로 적었다. 강의의 식은 링크마다 자기 좌표계 {i+1}의 숫자로 적어 가며 넘긴다. 그러면 Ẑ<sub>i+1</sub>이 늘 (0, 0, 1)이고, 앞 링크의 숫자는 회전행렬로 돌려서 가져온다.</p>
+<div class="math" data-tex="{}^{i+1}\omega_{i+1} = {}^{i+1}_{i}R\;{}^{i}\omega_{i} + \dot\theta_{i+1}\,{}^{i+1}\hat Z_{i+1}"></div>
+<div class="math" data-tex="{}^{i+1}v_{i+1} = {}^{i+1}_{i}R\left({}^{i}v_{i} + {}^{i}\omega_{i}\times{}^{i}p_{i+1}\right) + \dot d_{i+1}\,{}^{i+1}\hat Z_{i+1}"></div>
+<p>회전 관절이면 첫 식의 θ̇ 항만, 직동 관절이면 둘째 식의 ḋ 항만 남는다. 끝까지 넘긴 뒤 <sup>n</sup>v<sub>n</sub>, <sup>n</sup>ω<sub>n</sub>에 회전행렬 <sup>0</sup><sub>n</sub>R을 곱하면 받침 {0}의 숫자가 된다. 교수는 계산이 가장 가벼운 곳은 받침도 끝도 아닌 팔의 가운데라고 덧붙인다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 속도 전파는 컴퓨터로 숫자를 구하기에 좋다. 하지만 J가 식 속에 숨어 있어서 "어느 관절이 손끝을 어떻게 미는가"가 한눈에 보이지 않는다. 7장의 <strong>명시적 형태</strong>(explicit form)는 J의 열을 관절마다 바로 적는다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=3173">52:53 속도 전파</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=3338">55:38 ω<sub>i</sub> × p<sub>i+1</sub>이 들어가는 까닭</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=3496">58:16 각속도 넘기기</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=3909">1:05:09 자코비안은 어디 있나</a></p>
+<h2>6.9 강의 예제: 관절 3개짜리 평면 팔</h2>
+<p>강의 끝의 예제는 관절 3개짜리 평면 팔(l₁, l₂, l₃)이다. 2장의 3관절 팔(8 cm, 7 cm, 5 cm)로 같은 계산을 해 보자. 세 관절축이 모두 책상에 수직인 ẑ이다.</p>
+<h3>각속도는 그냥 더해진다</h3>
+<p>관절마다 같은 축으로 더 돌 뿐이라 ω는 세 관절 속도의 합이다.</p>
+<div class="math" data-tex="\omega_3 = (\dot\theta_1 + \dot\theta_2 + \dot\theta_3)\,\hat z = \begin{bmatrix} 0&amp;0&amp;0\\0&amp;0&amp;0\\1&amp;1&amp;1 \end{bmatrix}\begin{bmatrix}\dot\theta_1\\ \dot\theta_2\\ \dot\theta_3\end{bmatrix}"></div>
+<p>J<sub>ω</sub>의 세 열이 모두 (0, 0, 1)이다. 교수는 "이 (0, 0, 1)은 무엇인가?"라고 묻는다. 각 관절축 Ẑ<sub>i</sub>의 방향 그 자체다. <strong>회전 관절 i는 손끝을 자기 축 Ẑ<sub>i</sub> 둘레로 θ̇<sub>i</sub>만큼 돌린다.</strong></p>
+<h3>선속도는 관절에서 손끝까지의 화살표로</h3>
+<p>속도 전파를 한 칸씩 하면 손끝 속도는 다음과 같다. p₁₂, p₂₃, p₃₄는 첫째, 둘째, 셋째 링크를 따라 그은 화살표다.</p>
+<div class="math" data-tex="\begin{aligned} v &amp;= \dot\theta_1\,\hat z\times p_{12} + (\dot\theta_1+\dot\theta_2)\,\hat z\times p_{23} \\ &amp;\quad + (\dot\theta_1+\dot\theta_2+\dot\theta_3)\,\hat z\times p_{34} \end{aligned}"></div>
+<p>θ̇끼리 묶으면 열마다 깔끔한 모양이 된다.</p>
+<ul>
+<li>1열 = ẑ × (관절 1에서 손끝까지의 화살표)</li>
+<li>2열 = ẑ × (관절 2에서 손끝까지의 화살표)</li>
+<li>3열 = ẑ × (관절 3에서 손끝까지의 화살표)</li>
+</ul>
+<p>자세 θ = (0°, 90°, −90°)로 확인하자. 관절은 (0, 0), (8, 0), (8, 7)에 있고 손끝은 (13, 7)이다. 관절에서 손끝까지의 화살표는 (13, 7), (5, 7), (5, 0)이다. ẑ × (x, y) = (−y, x)이므로 다음과 같다.</p>
+<div class="math" data-tex="\begin{bmatrix} v_x\\ v_y\\ \omega_z \end{bmatrix} = \begin{bmatrix} -7 &amp; -7 &amp; 0 \\ 13 &amp; 5 &amp; 5 \\ 1 &amp; 1 &amp; 1 \end{bmatrix}\begin{bmatrix}\dot\theta_1\\ \dot\theta_2\\ \dot\theta_3\end{bmatrix}"></div>
+<p>손끝 식 x = 8c₁ + 7c₁₂ + 5c₁₂₃를 직접 편미분해도 같은 숫자가 나온다(파이썬 확인 코드). 강의 유인물은 손끝이 아니라 셋째 관절 자리의 속도를 구한다. 그래서 J<sub>v</sub>의 셋째 열이 0이다. 셋째 관절은 자기 축 위의 점을 움직이지 못하기 때문이다.</p>
+<p>회전 관절이면 "열 i = 관절 i의 축 × (관절 i에서 손끝까지)"가 3차원 팔에서도 그대로 통한다. 직동 관절의 열은 축 방향 그 자체다(6.4절의 3열). 7장에서는 이 모양을 써서 Scheinman 팔의 J를 보자마자 열마다 적는다. 이것으로 6강 내용이 끝난다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/fwHc0a8DMQ0?t=4040">1:07:20 3관절 팔 예제</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=4105">1:08:25 ω는 세 회전의 합</a> · <a href="https://youtu.be/fwHc0a8DMQ0?t=4138">1:08:58 (0, 0, 1)은 Z 벡터</a></p>
+<h2>6.10 연습문제</h2>
+<p>각도는 라디안으로 바꿔 계산한다. 답은 문제 8개 아래에 있다. 답을 보기 전에 손으로 끝까지 풀어 본다.</p>
+<ol>
+<li>f(θ₁, θ₂) = 3 sin θ₁ + 2 cos(θ₁ + θ₂)다. ∂f/∂θ₁과 ∂f/∂θ₂를 구하고, θ₁ = θ₂ = 0에서의 값을 구하라.</li>
+<li>종이 팔이 θ₁ = 0°, θ₂ = 90°에 있다.<ol>
+<li>J를 구하라.</li>
+<li>θ̇ = (0.5, −0.5) rad/s일 때 손끝 속도를 구하라.</li>
+<li>손끝 속도를 (−8, 0) cm/s로 만드는 θ̇는 무엇인가?</li>
+</ol>
+</li>
+<li>6.3절의 자세(θ₁ = 30°, θ₂ = 60°)에서 J⁻¹을 구하고, 손끝을 δx = (−0.4, 0) cm 옮길 δθ를 구하라. 2×2 역행렬은 [[a, b], [c, d]]⁻¹ = 1/(ad − bc) × [[d, −b], [−c, a]]다.</li>
+<li>종이 팔을 θ₁ = 0°, θ₂ = 0°로 쭉 폈다. J를 구하라. 손끝을 x 방향으로 움직일 수 있나? J⁻¹은 있나?</li>
+<li>a = (1, 2, 0), b = (0, 1, 3)이다. a × b를 구하고, â를 써서 â b가 같은 답인지 확인하라. 답이 a, b와 수직인지 내적으로 확인하라.</li>
+<li>물체가 z축 둘레로 ω = (0, 0, 3) rad/s로 돈다. 물체 위의 점 p = (2, 0, 5) cm의 속도를 구하라. 속력이 3 × |p|가 아닌 까닭은?</li>
+<li>종이 팔이 θ₁ = 90°, θ₂ = −90°에 있고, θ̇ = (1, 1) rad/s다. 속도 전파로 팔꿈치 속도 v₂, 링크 2의 각속도 ω₂, 손끝 속도 v₃를 차례로 구하라. J θ̇와 같은지 확인하라.</li>
+<li>Scheinman 팔이 θ₁ = 0°, θ₂ = 90°, d₂ = 5 cm, d₃ = 20 cm에 있다. 손목점 p와 J<sub>v</sub>의 1~3열을 구하고, 열마다 뜻을 말하라.</li>
+</ol>
+<h3>답</h3>
+<p><strong>답 1.</strong> ∂f/∂θ₁ = 3 cos θ₁ − 2 sin(θ₁ + θ₂), ∂f/∂θ₂ = −2 sin(θ₁ + θ₂)다. θ₂를 편미분할 때 3 sin θ₁은 숫자로 보므로 0이 된다. θ₁ = θ₂ = 0에서는 각각 3과 0이다.</p>
+<p><strong>답 2.</strong> s₁ = 0, c₁ = 1, s₁₂ = 1, c₁₂ = 0이다. 1열 = (−0 − 8, 10 + 0) = (−8, 10), 2열 = (−8, 0)이다.</p>
+<div class="math" data-tex="J = \begin{bmatrix} -8 &amp; -8 \\ 10 &amp; 0 \end{bmatrix}"></div>
+<div class="math" data-tex="J\begin{bmatrix}0.5\\-0.5\end{bmatrix} = \begin{bmatrix}-4+4\\5+0\end{bmatrix} = \begin{bmatrix}0\\5\end{bmatrix}\ \text{cm/s}"></div>
+<p>(−8, 0)은 둘째 열 그대로다. 그러니 θ̇ = (0, 1), 곧 팔꿈치만 1 rad/s로 돌린다. 둘째 행 10 θ̇₁ = 0에서 θ̇₁ = 0을 먼저 얻어도 된다.</p>
+<p><strong>답 3.</strong> ad − bc = (−13)(0) − (−8)(8.66) = 69.28이다.</p>
+<div class="math" data-tex="J^{-1} = \frac{1}{69.28}\begin{bmatrix} 0 &amp; 8 \\ -8.66 &amp; -13 \end{bmatrix} = \begin{bmatrix} 0 &amp; 0.115 \\ -0.125 &amp; -0.188 \end{bmatrix}"></div>
+<p>δθ = J⁻¹ (−0.4, 0) = (0 × (−0.4), −0.125 × (−0.4)) = (0, 0.05) rad다. 팔꿈치만 약 2.9° 더 돌린다. 6.3절에서 둘째 열 (−8, 0)을 보고 바로 얻은 답과 같다.</p>
+<p><strong>답 4.</strong> s₁ = s₁₂ = 0, c₁ = c₁₂ = 1이라 J = [[0, 0], [18, 8]]이다. 두 열이 모두 y 방향이라서 v<sub>x</sub>는 언제나 0이다. x 방향으로는 움직일 수 없다.</p>
+<p>ad − bc = 0 × 8 − 0 × 18 = 0이라 역행렬도 없다. 이런 자세가 특이점이고 7장에서 다룬다.</p>
+<p><strong>답 5.</strong> a × b = (2·3 − 0·1, 0·0 − 1·3, 1·1 − 2·0) = <b>(6, −3, 1)</b>이다. â와 곱도 같다.</p>
+<div class="math" data-tex="\hat a\,b = \begin{bmatrix} 0 &amp; 0 &amp; 2 \\ 0 &amp; 0 &amp; -1 \\ -2 &amp; 1 &amp; 0 \end{bmatrix}\begin{bmatrix}0\\1\\3\end{bmatrix} = \begin{bmatrix}6\\-3\\1\end{bmatrix}"></div>
+<p>a·(6, −3, 1) = 6 − 6 + 0 = 0, b·(6, −3, 1) = 0 − 3 + 3 = 0이다. 둘 다와 수직이다.</p>
+<p><strong>답 6.</strong> ω × p = (0·5 − 3·0, 3·2 − 0·5, 0·0 − 0·2) = <strong>(0, 6, 0) cm/s</strong>다. 속력 6은 3 × (축까지의 거리 2)다.</p>
+<p>|p| = √29 ≈ 5.39이지만 p의 z 성분 5는 축을 따라가는 부분이라 속도에 보태지 않는다. 축까지의 거리 |p| sin φ가 2다.</p>
+<p><strong>답 7.</strong> 팔꿈치는 (0, 10), 손끝은 (8, 10)에 있다.</p>
+<ul>
+<li>ω₁ = (0, 0, 1)이고 v₂ = ω₁ × (0, 10, 0) = (−10, 0, 0)이다.</li>
+<li>ω₂ = ω₁ + θ̇₂ ẑ = (0, 0, 2)다.</li>
+<li>v₃ = v₂ + ω₂ × (8, 0, 0) = (−10, 0, 0) + (0, 16, 0) = <strong>(−10, 16, 0) cm/s</strong>다.</li>
+</ul>
+<p>확인: s₁ = 1, c₁ = 0, s₁₂ = 0, c₁₂ = 1이라 J = [[−10, 0], [8, 8]]이다. J (1, 1) = (−10, 16)으로 같다.</p>
+<p><strong>답 8.</strong> c₁ = 1, s₁ = 0, c₂ = 0, s₂ = 1이다.</p>
+<ul>
+<li>p = (1·1·20 − 0, 0 + 1·5, 0) = <strong>(20, 5, 0)</strong> cm. 팔이 x 방향으로 수평으로 뻗어 있다.</li>
+<li>1열 = (−y, x, 0) = (−5, 20, 0). 받침 축 둘레로 수평으로 돌며, (20, 5)와 수직이다.</li>
+<li>2열 = (c₁c₂d₃, s₁c₂d₃, −s₂d₃) = (0, 0, −20). θ₂가 늘면 수평인 팔이 아래로 숙여진다. 1 rad/s에 20 cm/s다.</li>
+<li>3열 = (c₁s₂, s₁s₂, c₂) = (1, 0, 0). d₃가 늘면 손목점이 팔 방향(x)으로 곧게 나간다.</li>
+</ul>
+<h3>파이썬으로 확인</h3>
+<p>파이썬(numpy)이 있으면 아래를 붙여 넣어 돌려 본다. 주석의 값이 그대로 나온다. <code>-0.</code>은 아주 작은 계산 오차로 생긴 0이다.</p>
+<p><code>num_jac</code>는 관절 하나만 아주 조금 움직여 편미분을 숫자로 어림한다. 손으로 구한 J를 검사할 때 쓰면 좋다.</p>
+<pre><code class="language-python">import numpy as np
+
+D = np.pi / 180  # 도 → 라디안
+
+def hand(q, l=(10, 8)):
+    &quot;&quot;&quot;평면 팔의 손끝 위치. q는 관절 각도(라디안), l은 링크 길이.&quot;&quot;&quot;
+    a = np.cumsum(q)                       # θ1, θ1+θ2, θ1+θ2+θ3, ...
+    return np.array([np.sum(np.multiply(l, np.cos(a))), np.sum(np.multiply(l, np.sin(a)))])
+
+def jac(t1, t2):
+    &quot;&quot;&quot;6.3절에서 손으로 구한 종이 팔의 자코비안.&quot;&quot;&quot;
+    s1, c1, s12, c12 = np.sin(t1), np.cos(t1), np.sin(t1 + t2), np.cos(t1 + t2)
+    return np.array([[-10 * s1 - 8 * s12, -8 * s12],
+                     [10 * c1 + 8 * c12, 8 * c12]])
+
+def num_jac(f, q, h=1e-6):
+    &quot;&quot;&quot;편미분을 숫자로: 관절 하나만 앞뒤로 h씩 움직여 손끝 변화를 2h로 나눈다.&quot;&quot;&quot;
+    q = np.asarray(q, float)
+    cols = []
+    for j in range(len(q)):
+        dq = np.zeros_like(q)
+        dq[j] = h
+        cols.append((f(q + dq) - f(q - dq)) / (2 * h))
+    return np.column_stack(cols)
+
+def hat(a):
+    &quot;&quot;&quot;외적 연산자: hat(a) @ b == np.cross(a, b).&quot;&quot;&quot;
+    return np.array([[0, -a[2], a[1]], [a[2], 0, -a[0]], [-a[1], a[0], 0]])
+
+np.set_printoptions(precision=2, suppress=True)
+
+# 6.3 손으로 구한 J와 숫자로 구한 J
+q = np.array([30, 60]) * D
+print(jac(*q))                              # [[-13.    -8.  ] [  8.66   0.  ]]
+print(num_jac(hand, q))                     # [[-13.    -8.  ] [  8.66   0.  ]]
+print(jac(*q) @ [0.5, 1.0])                 # [-14.5    4.33]
+# 6.3 작을 때만 맞는다: 두 관절을 같은 각도씩 더 돌린다
+for deg in (1, 10, 30):
+    dq = np.array([deg, deg]) * D
+    real, pred = hand(q + dq) - hand(q), jac(*q) @ dq
+    print(deg, round(np.linalg.norm(real - pred), 3))   # 1 0.006 / 10 0.57 / 30 4.891
+
+# 문제 2~4
+J = jac(0, 90 * D)
+print(J, J @ [0.5, -0.5])                   # [[-8. -8.] [10.  0.]] [0. 5.]
+print(np.linalg.solve(J, [-8, 0]))          # [-0.  1.]
+print(np.linalg.inv(jac(*q)))               # [[ 0.    0.12] [-0.13 -0.19]]
+print(np.linalg.inv(jac(*q)) @ [-0.4, 0])   # [-0.    0.05]
+print(jac(0, 0), np.linalg.det(jac(0, 0)))  # [[-0. -0.] [18.  8.]] 0.0
+
+# 문제 5~6 외적
+a, b = np.array([1, 2, 0]), np.array([0, 1, 3])
+print(np.cross(a, b), hat(a) @ b)           # [ 6 -3  1] [ 6 -3  1]
+print(a @ np.cross(a, b), b @ np.cross(a, b))  # 0 0
+print(np.cross([0, 0, 3], [2, 0, 5]))       # [0 6 0]
+
+# 문제 7 속도 전파 (모든 화살표를 받침 {0}의 숫자로)
+def propagate(t1, t2, w1, w2):
+    z = np.array([0, 0, 1.0])
+    p12 = 10 * np.array([np.cos(t1), np.sin(t1), 0])
+    p23 = 8 * np.array([np.cos(t1 + t2), np.sin(t1 + t2), 0])
+    w_1 = w1 * z                            # 링크 1의 각속도
+    v_2 = np.cross(w_1, p12)                # 팔꿈치: v1 = 0 에 ω1 × p12
+    w_2 = w_1 + w2 * z                      # 링크 2의 각속도
+    v_3 = v_2 + np.cross(w_2, p23)          # 손끝
+    return v_2, w_2, v_3
+print(*propagate(90 * D, -90 * D, 1, 1))    # [-10.   0.   0.] [0. 0. 2.] [-10.  16.   0.]
+print(jac(90 * D, -90 * D) @ [1, 1])        # [-10.  16.]
+
+# 6.9 관절 3개 평면 팔 (8, 7, 5 cm)
+print(num_jac(lambda q: hand(q, (8, 7, 5)), np.array([0, 90, -90]) * D))  # [[-7. -7.  0.] [13.  5.  5.]]
+
+# 문제 8 Scheinman 팔의 손목점 (d2 = 5, d3 = 20 cm)
+def wrist(q, d2=5):
+    t1, t2, d3 = q
+    return np.array([np.cos(t1) * np.sin(t2) * d3 - np.sin(t1) * d2,
+                     np.sin(t1) * np.sin(t2) * d3 + np.cos(t1) * d2,
+                     np.cos(t2) * d3])
+qs = np.array([0, 90 * D, 20])
+print(wrist(qs))                            # [20.  5.  0.]
+print(num_jac(wrist, qs))                   # [[ -5.   0.   1.] [ 20.   0.   0.] [  0. -20.   0.]]
+</code></pre>
+<h3>스탠퍼드 숙제</h3>
+<p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 3에서 1번(주어진 변환행렬로 기본 자코비안 구하기)과 2번 (a)(b)(평면 PR 팔의 2×2 자코비안)는 이 장으로 풀 수 있다. 1번의 J<sub>ω</sub>는 6.8~6.9절처럼 회전 관절의 Ẑ 축을 모으면 된다. 직동 관절은 각속도에 보태지 않는다.</p>
+<p>2번 (c)와 3번 (d)~(f)의 특이점은 7장을 배운 뒤에 푼다. 3번 (a)(b)는 4~5장의 DH 표와 순기구학이다. 풀이는 같은 페이지의 Solution 3에 있다.</p>
+<p>다 풀었으면 <a href="https://youtu.be/fwHc0a8DMQ0">6강 영상</a>을 한 번 본다.</p>
+<div class="chapter-nav"><a href="ch5.html">← 5장. DH 표로 순기구학 끝까지 계산하기</a><a href="ch7.html">7장. 관절 하나에 열 하나: 자코비안 바로 읽기와 특이점 →</a></div>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+<script src="assets/figs/ch6.js"></script>
+<script>FigKit.renderAll();</script>
+</body>
+</html>

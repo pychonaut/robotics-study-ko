@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4장. 링크를 숫자 네 개로 적기: DH 파라미터</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch3.html">← 이전 장</a><a href="ch5.html">다음 장 →</a></header>
+<main>
+<h1>4장. 링크를 숫자 네 개로 적기: DH 파라미터</h1>
+<!-- card: 강의 4강 · 링크 길이·비틀림·오프셋·관절 각, 좌표계 붙이는 규칙, 링크 변환과 순기구학 · 연습문제와 파이썬 확인 코드 -->
+
+<p class="lead">팔의 링크마다 좌표계를 규칙대로 붙이면, 이웃한 좌표계 사이를 숫자 네 개(DH 파라미터)로 적을 수 있다. 이 네 숫자로 만든 변환을 차례로 곱하면 손끝의 위치와 방향이 나온다. 강의 4강(72분)에 해당한다.</p>
+
+<h2>4.1 좌표계를 어디에 붙일까</h2>
+<p>3.2절에서 종이 팔에 좌표계를 붙이고 변환을 이어 곱해 손끝 위치를 구했다. 그때는 좌표계를 눈으로 보기에 자연스러운 곳에 붙였다. 관절이 6개이고 축이 비틀린 팔에서도 그렇게 할 수 있을까?</p>
+<p>좌표계는 링크에 단단히 붙어 함께 움직이기만 하면 어디에 붙여도 된다. 예를 들어 링크 가운데에 아무 방향으로 붙일 수도 있다. 문제는 그다음이다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 좌표계 두 개 사이의 동차변환을 적으려면 숫자가 몇 개 필요할까?</p>
+</blockquote>
+<p>6개다. 원점 사이의 이동 3개와 방향의 회전 3개다(2.1절의 드론과 같다). 좌표계를 아무 데나 붙이면 이웃 링크 사이마다 숫자 6개가 생긴다. 게다가 관절이 돌면 6개가 모두 얽혀서 함께 바뀐다.</p>
+<figure data-fig="fig4_1"><div class="fig-title">규칙대로 붙이면 이웃 좌표계 사이가 숫자 4개로 줄어든다</div><div class="fig-body"></div><div class="fig-note">관절 하나는 자유도가 1이다. 그러니 바뀌는 숫자도 하나면 충분하다. ⊙는 종이에서 우리 쪽으로 나오는 z축이다.</div><figcaption>그림 4-1 · 좌표계를 붙이는 두 가지 방법</figcaption></figure>
+<p>관절은 한 방향으로만 움직인다(자유도 1). 이 제약을 쓰면 숫자를 줄일 수 있다. 좌표계를 관절 축에 맞춰 규칙대로 붙이면, 이웃 좌표계 사이는 숫자 4개로 적힌다.</p>
+<p>네 숫자 중 3개는 로봇을 만들 때 정해지는 상수다. 관절이 움직일 때 바뀌는 것은 1개뿐이다.</p>
+<p>이 네 숫자를 <strong>DH 파라미터</strong>(Denavit–Hartenberg parameters)라 한다. 1955년 Denavit과 Hartenberg가 제안한 방법이다.</p>
+<p>이 장은 네 숫자의 뜻(4.2~4.4절), 좌표계를 붙이는 규칙(4.5~4.6절), 네 숫자로 변환을 만들고 곱하는 법(4.8~4.9절)을 차례로 본다. 강의는 IBM의 초고속 위치 결정 장치 Hummingbird 영상(1992년)으로 시작하고, 본론은 5분쯤부터다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=290">04:50 오늘 할 일: 링크에서 순기구학까지</a> · <a href="https://youtu.be/IY38-bK6yXs?t=446">07:26 좌표계 사이의 숫자 6개</a> · <a href="https://youtu.be/IY38-bK6yXs?t=478">07:58 제약을 쓰자</a></p>
+<h2>4.2 링크 하나 = 숫자 두 개: 길이 a와 비틀림 α</h2>
+<h3>관절 축은 직선이다</h3>
+<p>회전 관절은 한 직선을 중심으로 돈다. 이 직선을 <strong>관절 축</strong>(joint axis)이라 한다. 직동 관절은 한 직선을 따라 미끄러지고, 그 방향이 관절 축이다.</p>
+<p>관절 i의 축을 "축 i"라 부른다. 링크 번호는 받침이 링크 0이고, 관절 1 다음이 링크 1이다. 그러면 <strong>링크 i−1은 축 i−1과 축 i를 잇는다.</strong></p>
+<p>기구학에 중요한 것은 링크의 모양이 아니다. 링크가 굽었든 두껍든, 양 끝의 두 축이 서로 어떻게 놓였는지만 중요하다. 두 직선의 관계는 숫자 두 개로 적힌다.</p>
+<h3>공통 수선과 링크 길이 a</h3>
+<p>3차원에서 두 직선은 대개 만나지도 않고 나란하지도 않다. 이런 관계를 <strong>꼬인 위치</strong>(skew)라 한다.</p>
+<p>꼬인 두 직선 사이에는 두 직선에 모두 수직인 선분이 꼭 하나 있다. 이것을 <strong>공통 수선</strong>(common normal)이라 한다.</p>
+<p>공통 수선의 길이가 <strong>링크 길이</strong>(link length) a<sub>i−1</sub>이다. 두 축 사이의 가장 짧은 거리다. 공통 수선의 방향은 축 i−1에서 축 i 쪽(손끝 쪽)으로 잡는다.</p>
+<blockquote>
+<p><strong>수학 더하기: 꼬인 위치와 가장 짧은 거리.</strong> 방의 천장에서 앞벽을 따라가는 모서리와, 바닥에서 왼쪽 벽을 따라가는 모서리를 떠올려 보자. 둘은 만나지도 나란하지도 않다. 둘을 잇는 가장 짧은 선은 두 벽이 만나는 세로 모서리이고, 두 모서리에 모두 수직이다. 그보다 비스듬한 선은 모두 더 길다. 그래서 두 직선 사이의 거리는 공통 수선의 길이로 정한다.</p>
+</blockquote>
+<h3>링크 비틀림 α</h3>
+<p>축 i의 발(공통 수선이 닿는 점)에 축 i−1과 나란한 선을 그어 보자. 그 선과 축 i 사이에 각이 생긴다. 이 각이 <strong>링크 비틀림</strong>(link twist) α<sub>i−1</sub>이다.</p>
+<p>각의 부호는 <strong>오른손 법칙</strong>으로 정한다. 오른손 엄지를 공통 수선 방향(축 i−1 → 축 i)으로 세운다. 네 손가락이 감기는 쪽으로 돌아 축 i에 닿으면 +다.</p>
+<figure data-fig="fig4_2"><div class="fig-title">두 관절 축 사이는 a와 α 두 숫자로 정해진다</div><div class="fig-body"></div><div class="fig-note">진한 선이 축 i−1, 파란 선이 축 i다. 주황 선이 공통 수선이고, 양 끝의 꺾쇠는 수직 표시다. 점선은 축 i−1과 나란한 선이다.</div><figcaption>그림 4-2 · 직접 바꿔 보기: 링크 길이 a와 비틀림 α</figcaption></figure>
+<p>해 볼 것 세 가지:</p>
+<ol>
+<li>α를 0°로 둔다. 두 축이 나란해진다. 종이 팔의 어깨 축과 팔꿈치 축이 이렇다.</li>
+<li>a를 0으로 둔다. 두 축이 한 점에서 만난다. 여러 축이 한 점에 모인 손목이 이렇다.</li>
+<li>α를 +40°와 −40°로 바꿔 본다. 축 i가 기우는 쪽이 반대가 된다. 부호가 방향을 말해 준다.</li>
+</ol>
+<p>a와 α는 로봇을 만들 때 정해진다. 관절이 돌아도 링크 모양은 그대로라서 바뀌지 않는다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 종이 팔의 어깨 축(축 1)과 팔꿈치 축(축 2)에서 a₁과 α₁은 얼마인가?</p>
+</blockquote>
+<p>두 축 모두 책상 면에 수직이라 나란하다. 그래서 α₁ = 0이다. 두 축 사이의 거리는 링크 1의 길이이므로 a₁ = 10 cm다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=602">10:02 링크와 양 끝의 두 축</a> · <a href="https://youtu.be/IY38-bK6yXs?t=634">10:34 공통 수선</a> · <a href="https://youtu.be/IY38-bK6yXs?t=728">12:08 비틀림 각</a></p>
+<h2>4.3 축이 나란하거나 만날 때</h2>
+<p>꼬인 위치에서는 공통 수선이 하나로 정해진다. 그런데 실제 로봇 팔은 축이 나란하거나 만나는 경우가 더 많다. 이때는 우리가 골라야 할 것이 생긴다.</p>
+<figure data-fig="fig4_3"><div class="fig-title">축이 나란하거나 만나면 공통 수선을 우리가 고른다</div><div class="fig-body"></div><figcaption>그림 4-3 · 두 관절 축이 놓이는 세 가지 경우</figcaption></figure>
+<h3>나란한 축</h3>
+<p>두 축이 나란하면 α = 0이다(두 축의 + 방향을 반대로 잡았다면 180°). 두 축에 모두 수직인 선은 높이만 바꿔 얼마든지 그을 수 있다. 길이는 모두 같으므로 a는 하나로 정해진다.</p>
+<p>어느 높이에 그을지는 우리가 고른다. 보통은 다음 절의 숫자 d가 0이 되는 높이를 고른다.</p>
+<h3>만나는 축</h3>
+<p>두 축이 한 점에서 만나면 a = 0이다. 공통 수선은 만나는 점을 지나고, 두 축이 함께 놓인 평면에 수직이다.</p>
+<p>그런데 평면에 수직인 방향은 두 가지다. 어느 쪽을 고르느냐에 따라 α의 부호가 바뀐다.</p>
+<p>어느 쪽을 골라도 틀리지 않는다. 고른 방향은 변환에 그대로 담기고, 그다음 링크의 숫자가 알아서 맞춰 준다. 다만 한번 고르면 끝까지 그 방향을 쓴다.</p>
+<blockquote>
+<p><strong>수학 더하기: 외적.</strong> 두 방향 u, v에 모두 수직인 방향은 <strong>외적</strong>(cross product) u × v로 구한다. u = (u₁, u₂, u₃), v = (v₁, v₂, v₃)이면 u × v = (u₂v₃ − u₃v₂, u₃v₁ − u₁v₃, u₁v₂ − u₂v₁)이다. 예: (1, 0, 0) × (0, 1, 0) = (0, 0, 1)이다. 엄지를 u, 검지를 v로 펴면 중지가 u × v 쪽이다(오른손 법칙). 만나는 두 축의 공통 수선은 이 방향이거나 그 반대 방향이다.</p>
+</blockquote>
+<p>실제 팔에서는 이렇다.</p>
+<ul>
+<li>PUMA 같은 산업용 팔은 축 1과 축 2가 만난다.</li>
+<li>손목은 축 4, 5, 6이 한 점에서 만난다. 만들기 쉽고 손 방향을 자유롭게 바꿀 수 있어서다. 대신 특이점 문제가 생기는데, 7강에서 본다.</li>
+<li>종이 팔은 축 1과 축 2가 나란하다.</li>
+</ul>
+<blockquote>
+<p><strong>알아 두기.</strong> 같은 팔이라도 사람마다 DH 표가 조금씩 다를 수 있다. 축의 + 방향, 나란한 축의 수선 높이, 만나는 축의 수선 방향을 고르는 방법이 여럿이기 때문이다. 고른 대로 일관되게 계산하면 손끝 위치는 모두 같게 나온다. 스탠퍼드 숙제 풀이에도 "다른 답도 맞다"고 적혀 있다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=821">13:41 나란한 축과 만나는 축</a> · <a href="https://youtu.be/IY38-bK6yXs?t=852">14:12 만나는 축의 공통 수선</a> · <a href="https://youtu.be/IY38-bK6yXs?t=2958">49:18 x 방향이 α의 부호를 정한다</a></p>
+<h2>4.4 링크 잇기 = 숫자 두 개: 오프셋 d와 관절 각 θ</h2>
+<p>a와 α는 링크 하나를 적는다. 이제 링크와 다음 링크가 어떻게 이어지는지 적는다.</p>
+<p>축 i에는 공통 수선 두 개가 닿는다. 하나는 뒤에서 오는 a<sub>i−1</sub>(축 i−1 → 축 i)이고, 다른 하나는 앞으로 가는 a<sub>i</sub>(축 i → 축 i+1)다.</p>
+<p>두 수선은 축 i 위의 서로 다른 점에 닿고, 서로 다른 방향을 본다. 이 어긋남이 숫자 두 개다.</p>
+<ul>
+<li><strong>링크 오프셋</strong>(link offset) d<sub>i</sub>: 축 i를 따라 잰, 두 수선이 닿는 점 사이의 거리.</li>
+<li><strong>관절 각</strong>(joint angle) θ<sub>i</sub>: 축 i를 중심으로 잰, a<sub>i−1</sub> 방향에서 a<sub>i</sub> 방향까지 돈 각. 오른손 엄지를 축 i의 + 방향으로 세우고 부호를 정한다.</li>
+</ul>
+<figure data-fig="fig4_4"><div class="fig-title">축 i 위에서 두 수선이 어긋난 정도가 d와 θ다</div><div class="fig-body"></div><div class="fig-note">파란 화살표 두 개가 공통 수선 a<sub>i−1</sub>과 a<sub>i</sub>다. 점선은 a<sub>i−1</sub>의 방향을 축 i를 따라 올려 놓은 것이다.</div><figcaption>그림 4-4 · 직접 바꿔 보기: 링크 오프셋 d와 관절 각 θ</figcaption></figure>
+<p>관절 i가 회전 관절이면, 관절이 돌 때 a<sub>i</sub>가 축 i를 중심으로 함께 돈다. 그래서 θ<sub>i</sub>가 바뀌고 d<sub>i</sub>는 그대로다. 직동 관절이면 a<sub>i</sub>가 축 i를 따라 미끄러져서 d<sub>i</sub>가 바뀐다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 그림 4-4에서 θ 슬라이더만 움직이면 축 i+1은 어떻게 되나? d 슬라이더만 움직이면?</p>
+</blockquote>
+<p>θ만 움직이면 축 i+1이 축 i를 중심으로 빙 돈다. 앞쪽 링크 전체가 도는 회전 관절이다. d만 움직이면 앞쪽 전체가 축 i를 따라 오르내리는 직동 관절이 된다.</p>
+<h3>네 숫자 정리</h3>
+<table>
+<thead>
+<tr>
+<th>숫자</th>
+<th>이름</th>
+<th>무엇을 적나</th>
+<th>회전 관절</th>
+<th>직동 관절</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a<sub>i−1</sub></td>
+<td>링크 길이</td>
+<td>링크 i−1</td>
+<td>고정</td>
+<td>고정</td>
+</tr>
+<tr>
+<td>α<sub>i−1</sub></td>
+<td>링크 비틀림</td>
+<td>링크 i−1</td>
+<td>고정</td>
+<td>고정</td>
+</tr>
+<tr>
+<td>d<sub>i</sub></td>
+<td>링크 오프셋</td>
+<td>링크 i−1과 i의 이음</td>
+<td>고정</td>
+<td>변수</td>
+</tr>
+<tr>
+<td>θ<sub>i</sub></td>
+<td>관절 각</td>
+<td>링크 i−1과 i의 이음</td>
+<td>변수</td>
+<td>고정</td>
+</tr>
+</tbody>
+</table>
+<p>어느 관절이든 넷 중 셋은 고정이고 하나만 변수다. 이 변수를 <strong>관절 변수</strong>(joint variable)라 한다. 회전 관절이면 θ<sub>i</sub>, 직동 관절이면 d<sub>i</sub>다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=946">15:46 다음 링크와 잇기</a> · <a href="https://youtu.be/IY38-bK6yXs?t=1072">17:52 링크 오프셋 d</a> · <a href="https://youtu.be/IY38-bK6yXs?t=1133">18:53 관절 각 θ</a> · <a href="https://youtu.be/IY38-bK6yXs?t=2087">34:47 네 숫자의 두 역할</a></p>
+<h2>4.5 좌표계를 붙이는 네 단계</h2>
+<p>네 숫자를 변환으로 바꾸려면 링크마다 좌표계를 붙여야 한다. 좌표계 {i}는 링크 i에 붙어 함께 움직인다. 규칙은 네 단계다.</p>
+<ol>
+<li><strong>공통 수선을 찾는다.</strong> 축 i와 축 i+1 사이의 공통 수선 a<sub>i</sub>를 긋는다.</li>
+<li><strong>원점을 정한다.</strong> 공통 수선 a<sub>i</sub>가 축 i와 만나는 점이 {i}의 원점이다.</li>
+<li><strong>z축을 정한다.</strong> z<sub>i</sub>는 관절 축 i를 따라간다.</li>
+<li><strong>x축을 정한다.</strong> x<sub>i</sub>는 공통 수선 a<sub>i</sub>를 따라 축 i+1 쪽을 본다. y<sub>i</sub>는 오른손 법칙으로 저절로 정해진다.</li>
+</ol>
+<figure data-fig="fig4_5"><div class="fig-title">수선 → 원점 → z → x 순서로 좌표계 {i}를 붙인다</div><div class="fig-body"></div><div class="fig-note">단계마다 새로 정한 것을 주황으로 그렸다.</div><figcaption>그림 4-5 · 좌표계 붙이기 네 단계</figcaption></figure>
+<p>z축을 관절 축에 맞추는 데는 이유가 있다. 관절이 돌면 링크는 z축을 중심으로 돈다. 그러면 관절 각이 곧 "z축을 중심으로 돈 각"이 되어 계산이 가장 간단해진다.</p>
+<p>특별한 경우는 4.3절에서 고른 대로 따른다.</p>
+<ul>
+<li>축 i와 축 i+1이 만나면: 원점은 만나는 점이다. x<sub>i</sub>는 두 축이 놓인 평면에 수직이다(두 방향 중 하나).</li>
+<li>나란하면: 공통 수선의 높이를 고른다. d가 0이 되는 높이가 편하다.</li>
+<li>받침 좌표계 {0}과 마지막 좌표계 {n}은 양쪽 축이 다 있지 않다. 4.6절에서 따로 정한다.</li>
+</ul>
+<h3>좌표계로 다시 쓰는 네 숫자</h3>
+<p>좌표계를 붙이고 나면 네 숫자를 축 이름만으로 말할 수 있다. 강의에서 교수가 "복사해서 곁에 두라"고 한 표다.</p>
+<table>
+<thead>
+<tr>
+<th>숫자</th>
+<th>뜻</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a<sub>i</sub></td>
+<td>z<sub>i</sub>에서 z<sub>i+1</sub>까지의 거리, x<sub>i</sub>를 따라 잰다</td>
+</tr>
+<tr>
+<td>α<sub>i</sub></td>
+<td>z<sub>i</sub>에서 z<sub>i+1</sub>까지의 각, x<sub>i</sub>를 중심으로 잰다</td>
+</tr>
+<tr>
+<td>d<sub>i</sub></td>
+<td>x<sub>i−1</sub>에서 x<sub>i</sub>까지의 거리, z<sub>i</sub>를 따라 잰다</td>
+</tr>
+<tr>
+<td>θ<sub>i</sub></td>
+<td>x<sub>i−1</sub>에서 x<sub>i</sub>까지의 각, z<sub>i</sub>를 중심으로 잰다</td>
+</tr>
+</tbody>
+</table>
+<p>외우는 요령은 하나다. <strong>a와 α는 z축 두 개 사이를 x로 재고, d와 θ는 x축 두 개 사이를 z로 잰다.</strong> 아래첨자도 조심한다. a와 α는 i와 i+1을, d와 θ는 i−1과 i를 본다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 4.1절에서 좌표계 사이의 숫자는 6개였다. 왜 4개로 줄었을까?</p>
+</blockquote>
+<p>좌표계를 아무 데나 붙이지 않았기 때문이다. x<sub>i−1</sub>은 공통 수선이라서 (1) z<sub>i</sub>에 수직이고 (2) z<sub>i</sub>와 만난다. 이 두 조건이 숫자 두 개를 미리 정해 버려서 6 − 2 = 4개만 남는다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> y축은 꼭 오른손 법칙으로 정한다. 엄지 x, 검지 y, 중지 z다. y를 반대로 그리면 왼손 좌표계가 되고, 그 뒤의 변환이 모두 틀린다. 강의에서 교수가 몇 번이나 "손을 쓰라"고 하는 이유다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=2271">37:51 좌표계를 어떻게 붙이나</a> · <a href="https://youtu.be/IY38-bK6yXs?t=2492">41:32 원점은 수선과 만나는 점</a> · <a href="https://youtu.be/IY38-bK6yXs?t=2802">46:42 네 단계 요약</a> · <a href="https://youtu.be/IY38-bK6yXs?t=3243">54:03 네 숫자 요약표</a></p>
+<h2>4.6 처음과 끝 좌표계: 0을 많이 만든다</h2>
+<p>4.5절의 규칙은 양쪽에 축이 있어야 쓸 수 있다. 관절이 n개면 축 1부터 축 n까지 있다. 그래서 a₁~a<sub>n−1</sub>과 α₁~α<sub>n−1</sub>은 축들이 정해 준다.</p>
+<p>맨 앞의 a₀, α₀와 맨 뒤의 a<sub>n</sub>, α<sub>n</sub>은 축이 하나 모자라서 정해지지 않는다. d와 θ도 비슷하다. d₁, θ₁은 x₀으로, d<sub>n</sub>, θ<sub>n</sub>은 x<sub>n</sub>으로 재는데, 두 x축은 아직 정해지지 않았다.</p>
+<p>정해지지 않은 숫자는 <strong>0이 되게</strong> 고른다. 0이 아닌 각(예: 30°)이 들어가면 그만큼 cos, sin 상수를 끝까지 들고 다녀야 한다. 0이 많을수록 순기구학 식이 짧아진다.</p>
+<h3>받침 좌표계 {0}</h3>
+<p>{0}은 받침에 붙어 움직이지 않는다. 축 0은 실제로 없으니 마음대로 놓을 수 있다. 가장 간단한 선택은 <strong>관절 변수가 0일 때 {0}과 {1}이 완전히 겹치게</strong> 하는 것이다.</p>
+<ul>
+<li>z₀을 z₁과 같은 직선에 놓는다. → a₀ = 0, α₀ = 0</li>
+<li>관절 1이 회전 관절이면 원점도 같은 점에 둔다. → d₁ = 0이고, θ₁ = 0일 때 x₀ = x₁</li>
+<li>관절 1이 직동 관절이면 x 방향을 같게 둔다. → θ₁ = 0이고, d₁ = 0일 때 {0} = {1}</li>
+</ul>
+<h3>마지막 좌표계 {n}</h3>
+<p>끝에서도 같은 생각을 쓴다. 관절 변수가 0일 때 {n}이 x<sub>n−1</sub> 위에 오고, x<sub>n</sub>이 x<sub>n−1</sub>과 같은 방향이 되게 고른다.</p>
+<ul>
+<li>관절 n이 회전 관절이면 → d<sub>n</sub> = 0</li>
+<li>관절 n이 직동 관절이면 → θ<sub>n</sub> = 0</li>
+</ul>
+<p>a<sub>n</sub>과 α<sub>n</sub>은 0으로 둔다. 축 n+1이 없으니 표의 1~n행에는 나오지도 않는다.</p>
+<h3>손 좌표계</h3>
+<p>실제로 알고 싶은 것은 {n}이 아니라 집게 끝이나 펜 끝일 때가 많다. 이때는 <strong>손 좌표계</strong>(tool frame) {H}를 하나 더 붙인다.</p>
+<p>{n}에서 {H}까지는 링크에 고정된 변환이라 숫자가 모두 상수다. 도구를 바꾸면 이 변환만 바꾸면 된다.</p>
+<p>받침 쪽도 마찬가지다. 책상이나 방에 기준 좌표계가 따로 필요하면 {0} 앞에 고정 변환을 하나 붙인다. 순기구학 본체는 그대로 두고, 양 끝에 상수 변환을 곱하기만 하면 된다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=1480">24:40 처음과 끝 링크</a> · <a href="https://youtu.be/IY38-bK6yXs?t=1574">26:14 0을 많이 만들자</a> · <a href="https://youtu.be/IY38-bK6yXs?t=1702">28:22 손 좌표계</a> · <a href="https://youtu.be/IY38-bK6yXs?t=3052">50:52 첫 링크와 마지막 링크</a></p>
+<h2>4.7 종이 팔의 DH 표</h2>
+<p>이제 규칙을 종이 팔에 써 보자. 종이 팔은 책상 면을 따라 평면으로 움직인다. 어깨 축(축 1)과 팔꿈치 축(축 2)은 모두 책상 면에 수직이고, 위쪽을 + 방향으로 잡는다.</p>
+<figure data-fig="fig4_6"><div class="fig-title">좌표계 네 개를 차례로 곱하면 손끝 위치가 나온다</div><div class="fig-body"></div><div class="fig-note">회색 {0}은 받침에 고정이다. 파란 {1}, {2}는 링크와 함께 돌고, 주황 {H}는 손끝에 붙어 있다. ⊙는 z축이다. 아래 행렬은 4.9절에서 계산한다.</div><figcaption>그림 4-6 · 직접 돌려 보기: 종이 팔의 좌표계 {0}, {1}, {2}, {H}</figcaption></figure>
+<p>좌표계를 하나씩 붙인다.</p>
+<ol>
+<li><strong>좌표계 1</strong>: 축 1과 축 2가 나란하니 공통 수선은 책상 면 높이에서 링크 1을 따라 긋는다. 원점은 어깨, z₁은 위쪽, x₁은 링크 1을 따라 팔꿈치 쪽이다.</li>
+<li><strong>좌표계 2</strong>: 마지막 관절이다. 원점은 x₁이 축 2와 만나는 팔꿈치에 둔다(d₂ = 0). x₂는 링크 2를 따라 손끝 쪽이다. θ₂ = 0이면 x₂가 x₁과 같은 방향이 된다.</li>
+<li><strong>좌표계 0</strong>: 어깨에 받침과 함께 고정한다. x₀은 책상의 x 방향이다. θ₁ = 0이면 {1}과 겹친다.</li>
+<li><strong>좌표계 H</strong>: 손끝에 둔다. 방향은 {2}와 같고, x₂를 따라 8 cm 간 곳이다.</li>
+</ol>
+<p>θ의 뜻도 확인하자. θ₁은 x₀에서 x₁까지, θ₂는 x₁에서 x₂까지 z축을 중심으로 잰 각이다. 1장에서 팔꿈치 각을 "링크 1을 늘인 선에서" 잰 이유가 바로 이것이다. 그렇게 재야 DH의 θ₂와 같아진다.</p>
+<table>
+<thead>
+<tr>
+<th>i</th>
+<th>α<sub>i−1</sub></th>
+<th>a<sub>i−1</sub></th>
+<th>d<sub>i</sub></th>
+<th>θ<sub>i</sub></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>θ₁</td>
+</tr>
+<tr>
+<td>2</td>
+<td>0</td>
+<td>10 cm</td>
+<td>0</td>
+<td>θ₂</td>
+</tr>
+<tr>
+<td>H</td>
+<td>0</td>
+<td>8 cm</td>
+<td>0</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>1행: {0}과 {1}은 원점과 z축이 같다. 다른 것은 θ₁뿐이다.</li>
+<li>2행: z₁에서 z₂까지 x₁을 따라 10 cm다(a₁ = 10 cm). 두 z축이 나란해서 α₁ = 0이다.</li>
+<li>H행: 관절이 아니라서 θ도 0으로 고정이다. 링크 2의 길이 8 cm가 여기 들어간다.</li>
+</ul>
+<p>표의 θ 칸에는 숫자 대신 θ₁, θ₂를 쓴다. 움직이는 변수이기 때문이다. 특정 자세를 적고 싶으면 칸을 하나 더 만든다(4.10절).</p>
+<p>슬라이더로 해 볼 것:</p>
+<ol>
+<li>θ₁ = 0°: {1}이 {0}과 겹친다. 받침 좌표계를 그렇게 골랐기 때문이다.</li>
+<li>θ₂ = 0°: x₂가 x₁을 곧게 늘인 방향이 된다.</li>
+<li>어느 자세에서든 {2}와 {H}는 방향이 같다. 행렬의 왼쪽 위 2×2가 θ₁ + θ₂로만 정해지는 것을 보자.</li>
+</ol>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=3433">57:13 평면 팔 예제</a> · <a href="https://youtu.be/IY38-bK6yXs?t=3651">1:00:51 받침 좌표계 고르기</a></p>
+<h2>4.8 링크 변환: 기본 변환 네 번</h2>
+<p>DH 표의 한 행은 {i−1}에서 {i}로 가는 변환 <sup>i−1</sup>T<sub>i</sub> 하나가 된다. {i−1}을 네 번 움직여 {i}에 겹쳐 보자. 한 번에 축 하나만 쓴다.</p>
+<ol>
+<li><strong>x<sub>i−1</sub>을 중심으로 α<sub>i−1</sub>만큼 돈다.</strong> z축이 축 i와 나란해진다.</li>
+<li><strong>x<sub>i−1</sub>을 따라 a<sub>i−1</sub>만큼 간다.</strong> 원점이 축 i 위에 올라선다. z축이 축 i와 겹친다.</li>
+<li><strong>z축(= 축 i)을 중심으로 θ<sub>i</sub>만큼 돈다.</strong> x축이 x<sub>i</sub>와 나란해진다.</li>
+<li><strong>z축을 따라 d<sub>i</sub>만큼 간다.</strong> 원점이 {i}의 원점에 닿아 {i}와 완전히 겹친다.</li>
+</ol>
+<figure data-fig="fig4_7"><div class="fig-title">비틀고, 밀고, 돌리고, 민다: 숫자 하나에 움직임 하나</div><div class="fig-body"></div><div class="fig-note">진한 화살표가 {i−1}, 파란 화살표가 {i}, 주황 표시가 네 단계의 움직임이다. 점선은 z<sub>i−1</sub>과 x<sub>i−1</sub>을 옮겨 놓은 선으로, α와 θ를 재는 기준이다. DH는 x축과 z축만 쓰므로 y축은 생략했다.</div><figcaption>그림 4-7 · 직접 바꿔 보기: {i−1}에서 {i}로 가는 네 단계</figcaption></figure>
+<p>그림에서 α는 축 i의 발에, θ는 {i}의 원점에 그렸다. x축을 중심으로 돌기와 x축을 따라 가기는 순서를 바꿔도 결과가 같다. z축의 두 움직임도 마찬가지다.</p>
+<h3>네 번 움직인 것을 곱으로</h3>
+<p>움직일 때마다 중간 좌표계가 하나씩 생긴다. 차례로 {R}, {Q}, {P}라 하자. 3.2절처럼 이웃끼리의 변환을 이어 곱하면 된다.</p>
+<div class="math" data-tex="{}^{i-1}_{i}T = {}^{i-1}_{R}T\;{}^{R}_{Q}T\;{}^{Q}_{P}T\;{}^{P}_{i}T"></div>
+<p>각 단계는 방금 움직인 좌표계의 축 하나로만 움직이므로, 회전만 있거나 이동만 있다. 이런 변환을 <strong>기본 변환</strong>이라 하자. R은 회전(rotation), D는 이동(displacement)이다.</p>
+<div class="math" data-tex="{}^{i-1}_{i}T = R_X(\alpha_{i-1})\;D_X(a_{i-1})\;R_Z(\theta_i)\;D_Z(d_i)"></div>
+<p>3.6절의 오일러 각과 같은 이치다. 방금 움직인 새 축으로 다음 동작을 하므로, 움직인 순서대로 오른쪽에 곱해 나간다.</p>
+<p>기본 변환은 2.6절의 기본 회전을 4×4로 키우거나, 2.8절의 동차변환에서 회전 없이 이동만 넣으면 된다. x축에 관한 둘과 z축에 관한 둘을 먼저 각각 곱한다.</p>
+<div class="math" data-tex="R_X(\alpha)\,D_X(a) = \begin{bmatrix} 1&amp;0&amp;0&amp;a \\ 0&amp;\cos\alpha&amp;-\sin\alpha&amp;0 \\ 0&amp;\sin\alpha&amp;\cos\alpha&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<div class="math" data-tex="R_Z(\theta)\,D_Z(d) = \begin{bmatrix} \cos\theta&amp;-\sin\theta&amp;0&amp;0 \\ \sin\theta&amp;\cos\theta&amp;0&amp;0 \\ 0&amp;0&amp;1&amp;d \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>이 둘을 곱하면 링크 변환이 나온다(곱하는 법은 3.2절의 "행렬 × 행렬"). c는 cos, s는 sin을 줄여 쓴 것이다.</p>
+<div class="math" data-tex="{}^{i-1}_{i}T = \begin{bmatrix} c\theta_i &amp; -s\theta_i &amp; 0 &amp; a_{i-1} \\ s\theta_i\,c\alpha_{i-1} &amp; c\theta_i\,c\alpha_{i-1} &amp; -s\alpha_{i-1} &amp; -s\alpha_{i-1}\,d_i \\ s\theta_i\,s\alpha_{i-1} &amp; c\theta_i\,s\alpha_{i-1} &amp; c\alpha_{i-1} &amp; c\alpha_{i-1}\,d_i \\ 0 &amp; 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<h3>행렬 읽기</h3>
+<ul>
+<li>1열, 2열, 3열은 {i−1}에서 본 x<sub>i</sub>, y<sub>i</sub>, z<sub>i</sub>다(2.6절: 회전행렬의 열은 돌린 축).</li>
+<li>3열 (0, −sα, cα)에는 θ와 d가 없다. z<sub>i</sub>는 축 i 방향이고, 축 i는 관절이 돌아도 그대로이기 때문이다.</li>
+<li>4열은 {i}의 원점이다. x<sub>i−1</sub>을 따라 a만큼 간 뒤, z<sub>i</sub> 방향 (0, −sα, cα)로 d만큼 더 간 곳이다.</li>
+</ul>
+<p>α = 0이면 평면 팔의 변환이 된다. 종이 팔의 2행(α₁ = 0, a₁ = 10, d₂ = 0)을 넣으면 이렇다.</p>
+<div class="math" data-tex="{}^{1}_{2}T = \begin{bmatrix} \cos\theta_2 &amp; -\sin\theta_2 &amp; 0 &amp; 10 \\ \sin\theta_2 &amp; \cos\theta_2 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 1 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 1 \end{bmatrix}"></div>
+<p>왼쪽 위는 2.5절의 평면 회전이고, 4열은 "x₁을 따라 10 cm"다. 팔꿈치는 어깨에서 링크 1을 따라 10 cm에 있고, 링크 2는 거기서 θ₂만큼 꺾인다는 뜻이다.</p>
+<blockquote>
+<p><strong>알아 두기: DH는 두 가지다.</strong> 이 장은 강의와 Craig 교재를 따라 <strong>수정 DH</strong>(modified DH)를 쓴다. 좌표계 {i}가 링크 i의 받침 쪽 끝(축 i)에 붙고, 변환은 R<sub>X</sub>(α<sub>i−1</sub>) D<sub>X</sub>(a<sub>i−1</sub>) R<sub>Z</sub>(θ<sub>i</sub>) D<sub>Z</sub>(d<sub>i</sub>)다. Spong, Siciliano 등 다른 많은 책은 <strong>고전 DH</strong>(standard DH)를 쓴다. 고전 DH는 {i}를 링크 i의 손끝 쪽 끝(축 i+1)에 붙이고, 변환을 R<sub>Z</sub>(θ<sub>i</sub>) D<sub>Z</sub>(d<sub>i</sub>) D<sub>X</sub>(a<sub>i</sub>) R<sub>X</sub>(α<sub>i</sub>)로 쓴다. 아래첨자와 곱하는 순서가 달라서, 한 책의 표를 다른 책의 공식에 넣으면 틀린다. 남이 만든 DH 표를 보면 어느 방식인지부터 확인한다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=3962">1:06:02 링크 변환 만들기</a> · <a href="https://youtu.be/IY38-bK6yXs?t=4091">1:08:11 기본 변환 네 개</a> · <a href="https://youtu.be/IY38-bK6yXs?t=4156">1:09:16 곱하면 끝</a></p>
+<h2>4.9 순기구학: 링크 변환을 차례로 곱한다</h2>
+<p>링크 변환을 모두 구했으면 받침에서 마지막 링크까지 차례로 곱한다. 3.2절의 변환 잇기 그대로다.</p>
+<div class="math" data-tex="{}^{0}_{n}T = {}^{0}_{1}T\;{}^{1}_{2}T\;\cdots\;{}^{n-1}_{n}T"></div>
+<p>손 좌표계까지 가려면 끝에 상수 변환 <sup>n</sup>T<sub>H</sub>를 하나 더 곱한다. 이것이 순기구학이다. 관절 변수를 넣으면 손의 위치와 방향이 한 번에 나온다.</p>
+<h3>종이 팔 끝까지 계산하기</h3>
+<p>4.7절의 표 세 행을 4.8절의 행렬에 넣는다. 모두 α = 0이라 간단하다. c₁은 cos θ₁, s₁₂는 sin(θ₁ + θ₂)를 줄여 쓴 것이다.</p>
+<div class="math" data-tex="{}^{0}_{1}T = \begin{bmatrix} c_1 &amp; -s_1 &amp; 0 &amp; 0 \\ s_1 &amp; c_1 &amp; 0 &amp; 0 \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix},\quad
+{}^{1}_{2}T = \begin{bmatrix} c_2 &amp; -s_2 &amp; 0 &amp; 10 \\ s_2 &amp; c_2 &amp; 0 &amp; 0 \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<div class="math" data-tex="{}^{2}_{H}T = \begin{bmatrix} 1&amp;0&amp;0&amp;8 \\ 0&amp;1&amp;0&amp;0 \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>앞의 두 개를 먼저 곱한다. 회전 부분에서 삼각함수의 덧셈정리가 나온다.</p>
+<blockquote>
+<p><strong>수학 더하기: 삼각함수 덧셈정리.</strong> cos(θ₁ + θ₂) = cos θ₁ cos θ₂ − sin θ₁ sin θ₂다. sin(θ₁ + θ₂) = sin θ₁ cos θ₂ + cos θ₁ sin θ₂다. 줄여 쓰면 c₁₂ = c₁c₂ − s₁s₂, s₁₂ = s₁c₂ + c₁s₂다. 평면에서 θ₁ 돌고 다시 θ₂ 돌면 θ₁ + θ₂ 돈 것과 같다는 뜻이다.</p>
+</blockquote>
+<div class="math" data-tex="{}^{0}_{2}T = {}^{0}_{1}T\,{}^{1}_{2}T = \begin{bmatrix} c_{12} &amp; -s_{12} &amp; 0 &amp; 10c_1 \\ s_{12} &amp; c_{12} &amp; 0 &amp; 10s_1 \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>4열은 팔꿈치의 위치다. 여기에 손 변환을 곱한다.</p>
+<div class="math" data-tex="{}^{0}_{H}T = {}^{0}_{2}T\,{}^{2}_{H}T = \begin{bmatrix} c_{12} &amp; -s_{12} &amp; 0 &amp; 10c_1 + 8c_{12} \\ s_{12} &amp; c_{12} &amp; 0 &amp; 10s_1 + 8s_{12} \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>4열의 위 두 칸이 1장의 손끝 공식과 똑같다. 왼쪽 위 2×2는 θ₁ + θ₂만큼 돈 회전이고, 손이 보는 방향을 말해 준다.</p>
+<p>숫자로 확인해 보자. θ₁ = 30°, θ₂ = 45°이면 c₁ ≈ 0.866, s₁ = 0.5, c₁₂ = cos 75° ≈ 0.259, s₁₂ = sin 75° ≈ 0.966이다. x = 8.66 + 2.07 = 10.73, y = 5 + 7.73 = 12.73이다.</p>
+<div class="math" data-tex="{}^{0}_{H}T = \begin{bmatrix} 0.26 &amp; -0.97 &amp; 0 &amp; 10.73 \\ 0.97 &amp; 0.26 &amp; 0 &amp; 12.73 \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>그림 4-6의 처음 자세가 바로 이 자세다. 슬라이더를 움직이며 행렬이 어떻게 바뀌는지 보자.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 종이 팔의 받침을 돌리지 않고 책상 모서리에서 (20, 5) cm인 곳에 놓았다. 책상 모서리 기준으로 손끝은 어디인가?</p>
+</blockquote>
+<p>책상 좌표계 {W}에서 {0}까지의 고정 변환을 앞에 곱해 <sup>W</sup>T<sub>H</sub> = <sup>W</sup>T<sub>0</sub> · <sup>0</sup>T<sub>H</sub>로 구한다. 받침이 돌지 않았으니 회전은 단위행렬이고, 위치에 (20, 5)가 더해진다. θ₁ = 30°, θ₂ = 45°이면 (30.73, 17.73) cm다.</p>
+<h3>닿는 영역</h3>
+<p>강의 중간에 6관절 팔의 손끝이 움직이며 공간을 채우는 영상이 나온다. 손끝이 닿을 수 있는 모든 곳을 <strong>닿는 영역</strong>(workspace)이라 한다. 링크 길이와, 관절이 돌 수 있는 범위(관절 한계)가 정한다.</p>
+<p>종이 팔에서는 1장 그림의 고리(2~18 cm)가 닿는 영역이다. 2.2절의 작업 공간(operational space)과는 다른 말이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=4217">1:10:17 변환을 곱해 순기구학</a> · <a href="https://youtu.be/IY38-bK6yXs?t=1384">23:04 닿는 영역</a></p>
+<h2>4.10 강의 예제: 관절 3개 평면 팔</h2>
+<p>강의는 관절 3개짜리 평면 팔로 DH 표를 만든다. 세 관절 모두 회전 관절이고, 축은 모두 종이 면에 수직이다. 여기서는 이 교재의 3관절 팔(8 cm, 7 cm, 5 cm)로 따라가 보자.</p>
+<figure data-fig="fig4_8"><div class="fig-title">축이 모두 나란하면 x축이 링크를 따라간다</div><div class="fig-body"></div><div class="fig-note">그림의 자세는 θ₁ = 30°, θ₂ = 40°, θ₃ = −50°다. {4}는 손 좌표계다.</div><figcaption>그림 4-8 · 관절 3개 평면 팔의 좌표계 (강의 예제, 링크 8·7·5 cm)</figcaption></figure>
+<h3>좌표계 붙이기</h3>
+<ol>
+<li><strong>공통 수선</strong>: 세 축이 나란하다. 종이 면 안에서 링크를 따라 긋는다. 그러면 d가 모두 0이 된다.</li>
+<li><strong>원점</strong>: 수선이 축과 만나는 점, 곧 관절 1, 2, 3의 자리다.</li>
+<li><strong>z축</strong>: 모두 종이에서 나오는 쪽(⊙)이다.</li>
+<li><strong>x축</strong>: x₁은 링크 1을, x₂는 링크 2를 따라간다. 마지막 x₃은 링크 3을 따라 둔다. 그러면 θ₃ = 0일 때 x₃이 x₂와 같은 방향이다.</li>
+</ol>
+<p>{0}은 z₀ = z₁으로 두고, θ₁ = 0일 때 x₀ = x₁이 되게 한다. 링크 3 끝의 손에는 {4}를 따로 붙인다.</p>
+<h3>DH 표</h3>
+<table>
+<thead>
+<tr>
+<th>i</th>
+<th>α<sub>i−1</sub></th>
+<th>a<sub>i−1</sub></th>
+<th>d<sub>i</sub></th>
+<th>θ<sub>i</sub></th>
+<th>그림의 자세</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>θ₁</td>
+<td>30°</td>
+</tr>
+<tr>
+<td>2</td>
+<td>0</td>
+<td>8</td>
+<td>0</td>
+<td>θ₂</td>
+<td>40°</td>
+</tr>
+<tr>
+<td>3</td>
+<td>0</td>
+<td>7</td>
+<td>0</td>
+<td>θ₃</td>
+<td>−50°</td>
+</tr>
+<tr>
+<td>4 (손)</td>
+<td>0</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>고정</td>
+</tr>
+</tbody>
+</table>
+<p>마지막 칸이 강의에서 말하는 "configuration shown" 칸이다. 표 본체에는 변수 이름을 쓰고, 이 칸에만 지금의 값을 쓴다. 숙제에서 그림을 보고 이 칸을 채우라는 문제가 나온다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 링크 3의 길이 5 cm는 1~3행 어디에도 없다. 왜 그런가?</p>
+</blockquote>
+<p>a<sub>i−1</sub>은 축 i−1과 축 i 사이의 거리다. 링크 3 뒤에는 축 4가 없으니 1~3행에 들어갈 자리가 없다. 손까지의 5 cm는 4행, 곧 고정된 손 변환 <sup>3</sup>T<sub>4</sub>에 들어간다(강의에서 학생이 묻는 것도 이것이다).</p>
+<p>표를 4.8절의 행렬에 넣어 곱하면 4.9절과 같은 모양이 나온다. c₁₂₃은 cos(θ₁ + θ₂ + θ₃)이다.</p>
+<div class="math" data-tex="{}^{0}_{4}T = \begin{bmatrix} c_{123} &amp; -s_{123} &amp; 0 &amp; 8c_1 + 7c_{12} + 5c_{123} \\ s_{123} &amp; c_{123} &amp; 0 &amp; 8s_1 + 7s_{12} + 5s_{123} \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>그림의 자세를 넣으면 손끝은 (14.02, 12.29) cm이다. 손은 30° + 40° − 50° = 20° 방향을 본다.</p>
+<p>다음 5강에서는 축이 비틀리고 만나는 3차원 팔(RPRR 팔, 스탠퍼드 Scheinman 팔)로 DH 표를 만든다. 이 장의 규칙을 그대로 쓰되, 4.3절의 고르기가 많이 나온다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/IY38-bK6yXs?t=3433">57:13 관절 3개 평면 팔</a> · <a href="https://youtu.be/IY38-bK6yXs?t=3713">1:01:53 DH 표 만들기</a> · <a href="https://youtu.be/IY38-bK6yXs?t=3868">1:04:28 그림의 자세 칸</a> · <a href="https://youtu.be/IY38-bK6yXs?t=3900">1:05:00 손끝까지는?</a></p>
+<h2>4.11 연습문제</h2>
+<p>종이에 축을 그리면서 푼다. 오른손을 꼭 쓴다. 답은 문제 7개 아래에 있다.</p>
+<ol>
+<li>축 i−1은 {i−1}의 z축이고 원점을 지난다. 축 i는 점 (3, 0, 0)을 지나고 + 방향이 (0, −1, 0)이다. a<sub>i−1</sub>과 α<sub>i−1</sub>을 구하라. 축 i의 + 방향을 (0, 1, 0)으로 잡으면 α<sub>i−1</sub>은 어떻게 되나?</li>
+<li>맞으면 ○, 틀리면 ×를 하고 이유를 써라.<ol>
+<li>a는 링크의 실제 길이다.</li>
+<li>두 축이 나란하고 + 방향이 같으면 α = 0이다.</li>
+<li>회전 관절의 d는 늘 0이다.</li>
+</ol>
+</li>
+<li>종이 팔이 θ₁ = 90°, θ₂ = −90°일 때 <sup>0</sup>T<sub>H</sub>를 구하라. 그림 4-6으로 확인하라.</li>
+<li>링크 변환에 α<sub>i−1</sub> = 90°, a<sub>i−1</sub> = 3 cm, d<sub>i</sub> = 2 cm, θ<sub>i</sub> = 90°를 넣어 <sup>i−1</sup>T<sub>i</sub>를 구하라. {i−1}에서 본 {i}의 원점과 x<sub>i</sub>는 무엇인가? 그림 4-7로 확인하라.</li>
+<li>종이 팔 손끝에 펜을 달았다. 펜은 손끝을 지나는 수직 축을 따라 오르내린다(직동 관절 3). 펜 끝 높이 d₃는 팔이 놓인 면에서 위쪽이 +다. DH 표를 쓰고 <sup>0</sup>T<sub>3</sub>을 구하라. θ₁ = 30°, θ₂ = 45°, d₃ = −2 cm이면 펜 끝은 어디인가?</li>
+<li>4.10절의 3관절 팔(8, 7, 5 cm)이 θ₁ = 90°, θ₂ = −90°, θ₃ = 90°일 때 손끝 위치와 손 방향을 구하라. 종이에 그려서도 확인하라.</li>
+<li>친구가 다른 책에서 종이 팔의 DH 표를 가져왔다. 열이 θ<sub>i</sub>, d<sub>i</sub>, a<sub>i</sub>, α<sub>i</sub> 순이고, 1행이 (θ₁, 0, 10, 0), 2행이 (θ₂, 0, 8, 0)이다. 이 표를 이 장의 링크 변환에 그대로 넣으면 어떻게 되나?</li>
+</ol>
+<h3>답</h3>
+<p><strong>답 1.</strong> 공통 수선은 원점에서 (3, 0, 0)까지 x축 위에 있다. 그래서 a<sub>i−1</sub> = 3이다.</p>
+<p>엄지를 +x로 세우면 손가락은 +y → +z → −y 순으로 감긴다. z축 (0, 0, 1)이 (0, −1, 0)이 되려면 + 쪽으로 90° 돌아야 하므로 α<sub>i−1</sub> = 90°다. R<sub>X</sub>(90°)의 셋째 열이 (0, −1, 0)인 것으로도 확인된다.</p>
+<p>축 i의 + 방향을 (0, 1, 0)으로 잡으면 α<sub>i−1</sub> = −90°다. 둘 다 맞고, 고른 방향을 끝까지 쓰면 된다.</p>
+<p><strong>답 2.</strong></p>
+<ol>
+<li>×. a는 두 관절 축 사이의 가장 짧은 거리다. 링크가 휘어 있으면 실제 길이와 다르다.</li>
+<li>○. + 방향을 반대로 잡으면 180°가 된다.</li>
+<li>×. 회전 관절의 d는 변하지 않을 뿐, 0이 아닐 수 있다. 두 공통 수선이 축 위의 다른 높이에 닿으면 d ≠ 0이다. 5강의 스탠퍼드 팔에 나오는 d₂가 그 예다.</li>
+</ol>
+<p><strong>답 3.</strong> c₁ = 0, s₁ = 1이고, θ₁ + θ₂ = 0이라 c₁₂ = 1, s₁₂ = 0이다. 위치는 x = 10 × 0 + 8 × 1 = 8, y = 10 × 1 + 8 × 0 = 10이다. 링크 1은 위로 서고, 링크 2는 직각으로 꺾여 x₀ 방향을 본다.</p>
+<div class="math" data-tex="{}^{0}_{H}T = \begin{bmatrix} 1&amp;0&amp;0&amp;8 \\ 0&amp;1&amp;0&amp;10 \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p><strong>답 4.</strong> cos θ = 0, sin θ = 1, cos α = 0, sin α = 1을 넣는다. {i}의 원점은 4열의 <b>(3, −2, 0)</b>이다. x<sub>i</sub>는 1열 (0, 0, 1)이라 z<sub>i−1</sub> 방향이다.</p>
+<div class="math" data-tex="{}^{i-1}_{i}T = \begin{bmatrix} 0&amp;-1&amp;0&amp;3 \\ 0&amp;0&amp;-1&amp;-2 \\ 1&amp;0&amp;0&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>네 단계로도 확인하자.</p>
+<ol>
+<li>x축으로 90° 비틀면 z축이 −y 쪽을 본다.</li>
+<li>x를 따라 3 cm 가면 원점이 (3, 0, 0)이다.</li>
+<li>새 z축을 중심으로 90° 돌면 x축이 +z 쪽을 본다.</li>
+<li>새 z축(−y 쪽)을 따라 2 cm 가면 원점이 (3, −2, 0)이다.</li>
+</ol>
+<p><strong>답 5.</strong> 축 3은 축 2와 나란하고 8 cm 떨어져 있다(α₂ = 0, a₂ = 8 cm). 직동 관절이라 θ₃는 0으로 고정하고(x₃ = x₂ 방향), d₃가 변수다. 이런 팔을 <strong>SCARA</strong>라 하며, 공장에서 부품을 끼울 때 많이 쓴다.</p>
+<table>
+<thead>
+<tr>
+<th>i</th>
+<th>α<sub>i−1</sub></th>
+<th>a<sub>i−1</sub></th>
+<th>d<sub>i</sub></th>
+<th>θ<sub>i</sub></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>θ₁</td>
+</tr>
+<tr>
+<td>2</td>
+<td>0</td>
+<td>10 cm</td>
+<td>0</td>
+<td>θ₂</td>
+</tr>
+<tr>
+<td>3</td>
+<td>0</td>
+<td>8 cm</td>
+<td>d₃</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<div class="math" data-tex="{}^{0}_{3}T = \begin{bmatrix} c_{12} &amp; -s_{12} &amp; 0 &amp; 10c_1 + 8c_{12} \\ s_{12} &amp; c_{12} &amp; 0 &amp; 10s_1 + 8s_{12} \\ 0&amp;0&amp;1&amp;d_3 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p>직동 관절은 4열의 셋째 칸에만 나타난다. 값을 넣으면 펜 끝은 <strong>(10.73, 12.73, −2) cm</strong>다.</p>
+<p><strong>답 6.</strong> 링크 1은 90° 방향이라 관절 2가 (0, 8)에 있다. 링크 2는 90° − 90° = 0° 방향이라 관절 3이 (7, 8)이다. 링크 3은 0° + 90° = 90° 방향이라 손끝이 <strong>(7, 13) cm</strong>이고, 손은 90° 방향(y₀ 쪽)을 본다.</p>
+<div class="math" data-tex="{}^{0}_{4}T = \begin{bmatrix} 0&amp;-1&amp;0&amp;7 \\ 1&amp;0&amp;0&amp;13 \\ 0&amp;0&amp;1&amp;0 \\ 0&amp;0&amp;0&amp;1 \end{bmatrix}"></div>
+<p><strong>답 7.</strong> 틀린 답이 나온다. 이 표는 고전 DH 표다(4.8절 알아 두기). 1행의 10은 고전 DH에서 a₁(축 1 → 축 2)인데, 수정 DH 공식에 넣으면 a₀으로 읽힌다. 그러면 θ₁로 돌기 전에 x₀을 따라 10 cm를 먼저 가 버린다.</p>
+<p>θ₁ = 30°, θ₂ = 45°로 계산하면 손끝이 (16.93, 4.00) cm로 나온다. 맞는 값 (10.73, 12.73)과 전혀 다르다. 고전 DH 표는 고전 DH 공식으로 계산해야 맞는 값이 나온다(아래 파이썬).</p>
+<h3>파이썬으로 확인</h3>
+<p>파이썬(numpy)이 있으면 아래를 붙여 넣어 돌려 본다. 주석의 값이 그대로 나온다.</p>
+<pre><code class="language-python">import numpy as np
+
+def dh(a, alpha, d, theta):
+    &quot;&quot;&quot;수정 DH(이 장, Craig)의 링크 변환. 각은 도.&quot;&quot;&quot;
+    al, th = np.radians(alpha), np.radians(theta)
+    ca, sa, ct, st = np.cos(al), np.sin(al), np.cos(th), np.sin(th)
+    return np.array([[ct,      -st,      0,    a],
+                     [st * ca,  ct * ca, -sa, -sa * d],
+                     [st * sa,  ct * sa,  ca,  ca * d],
+                     [0,        0,        0,   1]])
+
+def rot_x(deg):
+    t = np.radians(deg); c, s = np.cos(t), np.sin(t)
+    return np.array([[1, 0, 0, 0], [0, c, -s, 0],
+                     [0, s, c, 0], [0, 0, 0, 1]])
+
+def rot_z(deg):
+    t = np.radians(deg); c, s = np.cos(t), np.sin(t)
+    return np.array([[c, -s, 0, 0], [s, c, 0, 0],
+                     [0, 0, 1, 0], [0, 0, 0, 1]])
+
+def move(x=0, y=0, z=0):
+    T = np.eye(4); T[:3, 3] = [x, y, z]
+    return T
+
+def fk(table):
+    &quot;&quot;&quot;DH 표(행마다 a, alpha, d, theta)를 차례로 곱한다.&quot;&quot;&quot;
+    T = np.eye(4)
+    for row in table:
+        T = T @ dh(*row)
+    return T
+
+def r2(v):
+    return np.round(v, 2) + 0.0   # + 0.0은 -0.0을 0.0으로 바꾼다
+
+def show(T):
+    print(r2(T))
+
+np.set_printoptions(precision=2, suppress=True)
+
+# 4.8 기본 변환 네 번 = 링크 변환 (그림 4-7의 처음 값)
+four = rot_x(50) @ move(x=3) @ rot_z(-40) @ move(z=2)
+print(np.allclose(four, dh(3, 50, 2, -40)))   # True
+show(dh(3, 50, 2, -40))
+# [[ 0.77  0.64  0.    3.  ]
+#  [-0.41  0.49 -0.77 -1.53]
+#  [-0.49  0.59  0.64  1.29]
+#  [ 0.    0.    0.    1.  ]]
+
+# 4.9 종이 팔: 행마다 (a, alpha, d, theta)
+def paper_arm(t1, t2):
+    return fk([(0, 0, 0, t1), (10, 0, 0, t2), (8, 0, 0, 0)])
+show(paper_arm(30, 45))
+# [[ 0.26 -0.97  0.   10.73]
+#  [ 0.97  0.26  0.   12.73]
+#  [ 0.    0.    1.    0.  ]
+#  [ 0.    0.    0.    1.  ]]
+# 받침을 책상 모서리에서 (20, 5) cm에 놓았을 때
+print(r2((move(20, 5) @ paper_arm(30, 45))[:3, 3]))   # [30.73 17.73  0.  ]
+
+# 4.10 강의 예제: 3관절 평면 팔 (8, 7, 5 cm), 그림의 자세
+def arm3(t1, t2, t3):
+    return fk([(0, 0, 0, t1), (8, 0, 0, t2), (7, 0, 0, t3), (5, 0, 0, 0)])
+T = arm3(30, 40, -50)
+print(r2(T[:3, 3]), r2(np.degrees(np.arctan2(T[1, 0], T[0, 0]))))
+# [14.02 12.29  0.  ] 20.0
+
+# 문제 1: alpha = 90이면 z_i = (0, -1, 0)
+print(r2(dh(3, 90, 0, 0)[:3, 2]), r2(dh(3, 90, 0, 0)[:3, 3]))
+# [ 0. -1.  0.] [3. 0. 0.]
+# 문제 3
+show(paper_arm(90, -90))
+# [[ 1.  0.  0.  8.]
+#  [ 0.  1.  0. 10.]
+#  [ 0.  0.  1.  0.]
+#  [ 0.  0.  0.  1.]]
+# 문제 4
+show(dh(3, 90, 2, 90))
+# [[ 0. -1.  0.  3.]
+#  [ 0.  0. -1. -2.]
+#  [ 1.  0.  0.  0.]
+#  [ 0.  0.  0.  1.]]
+# 문제 5: 펜 달린 종이 팔 (SCARA)
+print(r2(fk([(0, 0, 0, 30), (10, 0, 0, 45), (8, 0, -2, 0)])[:3, 3]))
+# [10.73 12.73 -2.  ]
+# 문제 6
+show(arm3(90, -90, 90))
+# [[ 0. -1.  0.  7.]
+#  [ 1.  0.  0. 13.]
+#  [ 0.  0.  1.  0.]
+#  [ 0.  0.  0.  1.]]
+
+# 문제 7: 고전 DH 표를 수정 DH 공식에 넣으면 틀린다
+def dh_classic(theta, d, a, alpha):
+    &quot;&quot;&quot;고전 DH(Spong 등): R_Z(θ) D_Z(d) D_X(a) R_X(α).&quot;&quot;&quot;
+    return rot_z(theta) @ move(z=d) @ move(x=a) @ rot_x(alpha)
+wrong = dh(10, 0, 0, 30) @ dh(8, 0, 0, 45)
+right = dh_classic(30, 0, 10, 0) @ dh_classic(45, 0, 8, 0)
+print(r2(wrong[:3, 3]), r2(right[:3, 3]))
+# [16.93  4.    0.  ] [10.73 12.73  0.  ]
+print(np.allclose(right, paper_arm(30, 45)))   # True
+</code></pre>
+<h3>스탠퍼드 숙제</h3>
+<p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 2에서 2번(RRP 팔: 좌표계 그리기, DH 표, <sup>0</sup>T<sub>3</sub>)과 3번(2RP2R 팔의 DH 표)은 이 장으로 풀 수 있다. 1번은 연산자를 여러 번 겹치는 문제라 2.9절의 연산자와 3.7절(순서가 거꾸로 되는 이유)을 바탕으로 한다.</p>
+<p>Homework 3의 3번 (a), (b)(RRR 팔의 DH 표와 <sup>0</sup>T<sub>4</sub>)도 이 장으로 풀 수 있고, 나머지는 자코비안을 배운 뒤에 푼다. 풀이는 같은 페이지의 Solution 2, 3에 있다.</p>
+<p>숙제의 DH 표는 열 순서가 a<sub>i−1</sub>, α<sub>i−1</sub>, d<sub>i</sub>, θ<sub>i</sub>로 이 장과 조금 다르다. 열 순서는 자료마다 다르니 머리글을 보고 채운다.</p>
+<p>다 풀었으면 <a href="https://youtu.be/IY38-bK6yXs">4강 영상</a>을 한 번 본다.</p>
+<div class="chapter-nav"><a href="ch3.html">← 3장. 변환을 잇고, 방향을 세 각도로 적기</a><a href="ch5.html">5장. DH 표로 순기구학 끝까지 계산하기 →</a></div>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+<script src="assets/figs/ch4.js"></script>
+<script>FigKit.renderAll();</script>
+</body>
+</html>

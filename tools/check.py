@@ -42,7 +42,7 @@ def main() -> None:
         old.unlink()
     full = out / "full.png"
     subprocess.run(
-        [CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--window-size=560,30000",
+        [CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--window-size=560,60000",
          "--virtual-time-budget=10000", f"--screenshot={full}", url],
         capture_output=True, timeout=180,
     )

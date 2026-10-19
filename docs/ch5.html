@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5장. DH 표로 순기구학 끝까지 계산하기</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch4.html">← 이전 장</a><a href="ch6.html">다음 장 →</a></header>
+<main>
+<h1>5장. DH 표로 순기구학 끝까지 계산하기</h1>
+<!-- card: 강의 5강 · RPRR 팔과 스탠퍼드 Scheinman 팔의 DH 표, ⁰T₆ 읽기 · 보충: 종이 팔 역기구학 -->
+
+<p class="lead">4장의 DH 파라미터로 실제 팔의 순기구학을 처음부터 끝까지 계산한다. 연습용 RPRR 팔과 스탠퍼드 Scheinman 팔에 좌표계를 붙이고, 행렬을 곱해 손의 위치와 방향을 읽어 낸다. 끝에는 강의에 없는 종이 팔의 역기구학을 보충한다. 강의 5강(67분)에 해당한다.</p>
+
+<h2>5.1 4장 복습과 좌표계 붙이는 순서</h2>
+<p>이번 강의에는 새 이론이 거의 없다. 대신 예제 두 개를 처음부터 끝까지 푼다. DH 파라미터만 정하면 순기구학이 저절로 나온다는 것을 직접 확인하는 시간이다.</p>
+<h3>4장에서 한 것</h3>
+<p>4장에서는 관절 축마다 z축을 놓고, 이웃한 두 좌표계 사이를 숫자 네 개로 적었다. 이 교재는 강의와 같은 Craig 교재의 방식(수정 DH)을 쓴다. 두 숫자는 z<sub>i−1</sub>에서 z<sub>i</sub>까지를 x<sub>i−1</sub>을 따라 재고, 나머지 두 숫자는 x<sub>i−1</sub>에서 x<sub>i</sub>까지를 z<sub>i</sub>를 따라 잰다.</p>
+<table>
+<thead>
+<tr>
+<th>파라미터</th>
+<th>무엇에서 무엇까지</th>
+<th>어떻게 재나</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a<sub>i−1</sub> 링크 길이</td>
+<td>z<sub>i−1</sub> → z<sub>i</sub></td>
+<td>x<sub>i−1</sub>을 따라 잰 거리</td>
+</tr>
+<tr>
+<td>α<sub>i−1</sub> 비틀림</td>
+<td>z<sub>i−1</sub> → z<sub>i</sub></td>
+<td>x<sub>i−1</sub>을 축으로 돈 각도</td>
+</tr>
+<tr>
+<td>d<sub>i</sub> 오프셋</td>
+<td>x<sub>i−1</sub> → x<sub>i</sub></td>
+<td>z<sub>i</sub>를 따라 잰 거리</td>
+</tr>
+<tr>
+<td>θ<sub>i</sub> 관절 각</td>
+<td>x<sub>i−1</sub> → x<sub>i</sub></td>
+<td>z<sub>i</sub>를 축으로 돈 각도</td>
+</tr>
+</tbody>
+</table>
+<div class="math" data-tex="{}^{i-1}_{\;\;i}T = R_X(\alpha_{i-1})\,D_X(a_{i-1})\,R_Z(\theta_i)\,D_Z(d_i)"></div>
+<p>"x축으로 돌고 가고, z축으로 돌고 간다"로 외우면 된다. 회전 관절이면 θ<sub>i</sub>가, 직동 관절이면 d<sub>i</sub>가 변수다. 나머지 셋은 팔을 만들 때 정해지는 상수다.</p>
+<h3>좌표계 붙이기 네 단계</h3>
+<p>강의의 요약 슬라이드는 순서를 네 낱말로 적는다. 공통 수선, 원점, z축, x축이다.</p>
+<figure data-fig="fig5_1"><div class="fig-title">축 두 개 사이를 거리 둘, 각도 둘로 적는다</div><div class="fig-body"></div><div class="fig-note">파란 화살표는 z축, 주황 화살표는 x축이다. 동그라미 번호가 붙이는 순서다.</div><figcaption>그림 5-1 · DH 파라미터 네 개와 좌표계를 붙이는 순서</figcaption></figure>
+<ol>
+<li><strong>공통 수선</strong>: 이웃한 두 관절 축마다 둘 다에 수직인 선을 찾는다. 축이 만나면 길이가 0이다. 축이 나란하면 어디에 그어도 된다.</li>
+<li><strong>원점</strong>: 축 i와 i+1 사이 공통 수선이 축 i와 만나는 점이 원점 O<sub>i</sub>다.</li>
+<li><strong>z축</strong>: z<sub>i</sub>를 관절 축 i를 따라 놓는다. 위아래 방향은 고르면 된다.</li>
+<li><strong>x축</strong>: x<sub>i</sub>를 공통 수선을 따라 다음 축 쪽으로 놓는다. 두 축이 만나면 두 z축이 이루는 면에 수직으로 놓는다.</li>
+</ol>
+<p>y축은 오른손 법칙으로 채운다. 처음과 끝 좌표계에는 요령이 하나 있다. <strong>상수 파라미터는 되도록 0이 되게 고른다.</strong></p>
+<ul>
+<li><strong>{0}</strong>: 관절 1의 변수가 0일 때 {1}과 겹치게 둔다. 그러면 a₀ = α₀ = 0이고, d₁과 θ₁ 가운데 상수인 쪽도 0이 된다.</li>
+<li><strong>마지막 좌표계</strong>: 마지막 관절 축 위에 원점을 두고, 남는 상수가 0이 되게 x축 방향을 고른다.</li>
+</ul>
+<p>두 축이 나란하면 공통 수선이 무수히 많아서 원점을 고를 수 있다. 아무 데나 둬도 표는 맞지만, 다음 줄의 d가 0이 되는 곳을 고르면 숫자가 하나 준다. 다음 절의 RPRR 팔에서 이 선택을 한다.</p>
+<p>강의는 나고야 대학의 로봇 영상으로 시작한다. 긴팔원숭이처럼 나뭇가지를 번갈아 잡으며 건너가는 로봇이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=52">00:52 매달려 건너가는 로봇</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=278">04:38 좌표계 붙이기 복습</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=403">06:43 DH 파라미터 네 개</a></p>
+<h2>5.2 예제 1: RPRR 팔</h2>
+<p>숙제와 시험에 나오는 전형적인 예제다(강의 예제). 관절이 회전(R), 직동(P), 회전(R), 회전(R) 순서로 있어서 RPRR 팔이라 부른다.</p>
+<p>손에 붙은 좌표계 {5}는 문제에서 주어진다. 받침 {0}에서 {5}까지의 변환을 구하는 것이 목표다.</p>
+<h3>도식 읽기</h3>
+<p>로봇의 구조는 관절 기호로 그린 <strong>도식</strong>(schematic)으로 나타낸다. 기호는 세 가지만 알면 된다.</p>
+<ul>
+<li><strong>축이 종이 면 안에 있는 회전 관절</strong>: 축을 따라 놓인 원통(길쭉한 네모)으로 그린다.</li>
+<li><strong>축이 종이 면에 수직인 회전 관절</strong>: 동그라미로 그린다.</li>
+<li><strong>직동 관절</strong>: 막대 위를 미끄러지는 토막으로 그린다.</li>
+</ul>
+<figure data-fig="fig5_2"><div class="fig-title">RPRR 팔: 관절 축마다 z, 공통 수선마다 x</div><div class="fig-body"></div><div class="fig-note">⊙는 종이 면에서 나를 향해 나오는 방향이다. y₀는 오른손 법칙으로 채우면 오른쪽이다.</div><figcaption>그림 5-2 · RPRR 팔과 좌표계 (강의 예제를 새로 그림)</figcaption></figure>
+<p>도식은 한 순간의 자세일 뿐이다. 관절을 하나씩 움직이며 손이 어떻게 가는지 머릿속으로 그려 봐야 한다. 교수가 특히 강조하는 부분이다.</p>
+<ul>
+<li>관절 1을 돌리면 팔 전체가 세로축을 중심으로 돌아, 손이 종이 면 밖으로 나간다.</li>
+<li>관절 2는 토막을 막대를 따라 좌우로 민다.</li>
+<li>관절 3은 종이 면 안에서 손을 위아래로 든다.</li>
+<li>관절 4는 팔 방향 축을 중심으로 손을 비튼다. 손이 다시 종이 면 밖으로 나간다.</li>
+</ul>
+<h3>원점 정하기</h3>
+<ol>
+<li>축 1과 축 2는 한 점에서 만난다. 그 점이 O₁이고, O₀도 같은 점에 둔다. 더 아래에 두면 d₁이라는 쓸데없는 숫자가 생긴다.</li>
+<li>축 2(가로)와 축 3(⊙)은 만나지 않고 서로 수직이다. 둘을 잇는 공통 수선은 세로이고, 길이는 L₂다. 이 수선이 축 2와 만나는 점이 O₂다.</li>
+<li>축 3과 축 4는 만난다. 그 점이 O₃다.</li>
+<li>축 4와 손의 z₅는 나란하다. 공통 수선이 무수히 많으니 O₄를 O₃와 같은 점에 둔다. 그러면 d₄ = 0이다.</li>
+</ol>
+<h3>x축 정하기</h3>
+<ul>
+<li>x₁: z₁과 z₂가 만나니 둘이 이루는 면, 곧 종이 면에 수직이다. 나오는 쪽(⊙)을 골랐다.</li>
+<li>x₂: 공통 수선을 따라 O₂에서 O₃ 쪽, 곧 위를 본다.</li>
+<li>x₃: z₃와 z₄가 만나니 둘에 수직이다. 위쪽을 골랐다.</li>
+<li>x₄: 공통 수선을 따라 축 4에서 z₅ 쪽, 곧 위를 본다. x₃와 한 줄에 놓인다.</li>
+<li>x₅: 문제에서 주어졌다.</li>
+</ul>
+<h3>DH 표</h3>
+<p>굵게 쓴 칸이 변수다. 마지막 열은 그림에 그려진 자세에서 변수가 얼마인지 적는 칸이다. 교수는 이 열을 늘 함께 쓰라고 한다.</p>
+<table>
+<thead>
+<tr>
+<th>i</th>
+<th>α<sub>i−1</sub></th>
+<th>a<sub>i−1</sub></th>
+<th>d<sub>i</sub></th>
+<th>θ<sub>i</sub></th>
+<th>그림의 자세</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td><strong>θ₁</strong></td>
+<td>θ₁ = 0</td>
+</tr>
+<tr>
+<td>2</td>
+<td>−90°</td>
+<td>0</td>
+<td><strong>d₂</strong></td>
+<td>−90°</td>
+<td>그림의 길이</td>
+</tr>
+<tr>
+<td>3</td>
+<td>−90°</td>
+<td>L₂</td>
+<td>0</td>
+<td><strong>θ₃</strong></td>
+<td>θ₃ = 0</td>
+</tr>
+<tr>
+<td>4</td>
+<td>90°</td>
+<td>0</td>
+<td>0</td>
+<td><strong>θ₄</strong></td>
+<td>θ₄ = 0</td>
+</tr>
+<tr>
+<td>5</td>
+<td>0</td>
+<td>L₄</td>
+<td>L₅</td>
+<td>0</td>
+<td>(변수 없음)</td>
+</tr>
+</tbody>
+</table>
+<p>몇 칸을 직접 확인해 보자. 각도의 부호는 오른손 법칙으로 정한다. 엄지를 축 방향으로 세웠을 때 네 손가락이 감기는 쪽이 +다.</p>
+<ul>
+<li><strong>α₁ = −90°</strong>: 엄지를 x₁(나를 향해)으로 세우면 손가락은 시계 반대 방향으로 감긴다. z₁(위)에서 z₂(오른쪽)로 가는 것은 시계 방향이라 −90°다.</li>
+<li><strong>θ₂ = −90°</strong>: 직동 관절이라 각도가 상수다. 엄지를 z₂(오른쪽)로 두면 손가락은 위 → 나 → 아래 순으로 감긴다. x₁(나)에서 x₂(위)로 가는 것은 그 반대라 −90°다.</li>
+<li><strong>α₂ = −90°</strong>: 엄지를 x₂(위)로 세우면 손가락은 나 → 오른쪽 → 뒤 순으로 감긴다. z₂(오른쪽)에서 z₃(나)로는 거꾸로 가니 −90°다.</li>
+<li><strong>α₃ = +90°</strong>: 엄지는 x₃(위)로 같다. z₃(나)에서 z₄(오른쪽)로는 바르게 가니 +90°다.</li>
+<li><strong>a₂ = L₂</strong>: z₂와 z₃ 사이 거리다.</li>
+<li><strong>5행</strong>: z₄와 z₅가 나란해서 α₄ = 0이다. 둘 사이가 L₄, x₄ 줄에서 O₅까지 z₅를 따라 L₅다. x₅와 x₄가 같은 쪽이라 θ₅ = 0이다.</li>
+</ul>
+<p>줄마다 변수가 딱 하나씩 있다. 5행에는 변수가 없다. 손에 붙인 상수 변환이기 때문이다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> x₃를 위가 아니라 아래로 잡았다면 무엇이 달라질까?</p>
+</blockquote>
+<p>α₃가 −90°로 바뀌고, 그림의 자세에서 θ₃와 θ₄가 0이 아니라 180°가 된다. 그래도 끝에 곱해 나오는 ⁰T₅는 똑같다(5.10절의 코드로 확인했다). x축 방향은 고르기 나름이고, 고른 결과가 각도에 다 반영되기 때문이다. α를 늘 양수로 맞출 수도 없다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 강의 슬라이드의 표는 d₄ 칸이 0이 아니게 적혀 있다. 학생이 묻자 교수가 0으로 고친다. x₃와 x₄가 한 줄 위에 있으니 d₄ = 0이 맞다. 표를 볼 때 "이 거리를 어느 두 x축 사이에서 쟀나"를 그림에서 짚어 보면 이런 실수를 잡는다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=497">08:17 RPRR 예제</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=686">11:26 도식을 움직여 보며 읽기</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=1061">17:41 나란한 축의 원점</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=1409">23:29 DH 표</a></p>
+<h2>5.3 실제 팔: 스탠퍼드 Scheinman 팔</h2>
+<p>이번에는 실제로 만들어진 로봇이다. Vic Scheinman이 스탠퍼드에서 설계하고 만든 관절 6개짜리 팔이다. 관절 하나가 직동인 드문 팔이라서, 팔대(붐, boom)가 앞뒤로 쭉 늘어난다.</p>
+<table>
+<thead>
+<tr>
+<th>관절</th>
+<th>종류</th>
+<th>하는 일</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>회전</td>
+<td>받침이 세로축을 중심으로 돈다</td>
+</tr>
+<tr>
+<td>2</td>
+<td>회전</td>
+<td>어깨가 가로축을 중심으로 돌며 팔대를 든다</td>
+</tr>
+<tr>
+<td>3</td>
+<td>직동</td>
+<td>팔대가 제 길이 방향으로 미끄러진다</td>
+</tr>
+<tr>
+<td>4</td>
+<td>회전</td>
+<td>손목: 팔대 축을 중심으로 비튼다</td>
+</tr>
+<tr>
+<td>5</td>
+<td>회전</td>
+<td>손목: 손을 꺾는다</td>
+</tr>
+<tr>
+<td>6</td>
+<td>회전</td>
+<td>손목: 손을 제 축으로 비튼다</td>
+</tr>
+</tbody>
+</table>
+<figure data-fig="fig5_3"><div class="fig-title">관절 각도가 모두 0이면 팔대가 곧게 위를 본다</div><div class="fig-body"></div><div class="fig-note">점선이 관절 축이다. x축이 모두 같은 쪽(앞)을 본다.</div><figcaption>그림 5-3 · Scheinman 팔의 관절 축과 좌표계 (θ₁ = θ₂ = θ₄ = θ₅ = θ₆ = 0)</figcaption></figure>
+<ul>
+<li>축 1과 축 2는 한 점에서 만난다. 팔대(축 3)는 어깨축을 따라 d₂만큼 옆으로 비켜 있다.</li>
+<li>손목의 세 축(4, 5, 6)은 한 점에서 만난다. 이런 손목을 <strong>구형 손목</strong>(spherical wrist)이라 하고, 그 점을 <strong>손목 중심</strong>(wrist center)이라 한다. 6장과 7장에서는 손목점이라고도 부른다.</li>
+<li>그래서 앞의 세 관절이 손목 중심의 위치를 맡고, 손목의 세 관절이 손의 방향을 맡는다. 5.6절에서 계산으로 확인한다.</li>
+</ul>
+<h3>손목 잠김</h3>
+<p>그림 5-3처럼 θ₅ = 0이면 축 4와 축 6이 한 줄로 겹친다. 두 관절이 똑같은 회전을 하게 된다.</p>
+<p>그러면 손을 어떤 방향으로는 돌릴 수 없다. 이것을 <strong>손목 잠김</strong>(wrist lock)이라 하고, 1장에서 본 <strong>특이점</strong>(singularity)의 한 종류다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 그림 5-3의 자세에서 관절 4만 10° 돌린 손과, 관절 6만 10° 돌린 손을 구별할 수 있을까?</p>
+</blockquote>
+<p>구별할 수 없다. 둘 다 손을 같은 세로축으로 10° 비튼다. θ₄ + θ₆만 뜻이 있고 둘을 나눌 수 없다.</p>
+<p>관절은 6개인데 손이 쓸 수 있는 회전이 하나 줄어든 것이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=1832">30:32 Scheinman 팔</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=1926">32:06 도식</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=2111">35:11 손목 잠김</a></p>
+<h2>5.4 Scheinman 팔의 DH 표</h2>
+<p>관절을 모두 0에 둔 그림 5-3의 자세에서 좌표계를 붙인다. 5.1절의 네 단계를 그대로 따른다.</p>
+<ol>
+<li><strong>z축</strong>: 관절 축마다 하나씩 놓는다. z₀는 z₁과 겹치게 둔다.</li>
+<li><strong>원점</strong>: O₀ = O₁은 축 1과 축 2가 만나는 점이다. O₂는 어깨축과 팔대 축이 만나는 점이다. O₃, O₄, O₅, O₆은 모두 손목 중심이다.</li>
+<li><strong>x축</strong>: 만나는 두 축마다 둘에 수직으로 놓는다. 이 자세에서는 x₀부터 x₆까지 모두 앞을 본다.</li>
+<li><strong>겹치는 축</strong>: 축 3과 축 4는 한 줄이라 x₃ 방향은 자유다. x₂와 같은 쪽으로 두어 상수 θ₃를 0으로 만든다.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>i</th>
+<th>α<sub>i−1</sub></th>
+<th>a<sub>i−1</sub></th>
+<th>d<sub>i</sub></th>
+<th>θ<sub>i</sub></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td><strong>θ₁</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>−90°</td>
+<td>0</td>
+<td>d₂</td>
+<td><strong>θ₂</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>90°</td>
+<td>0</td>
+<td><strong>d₃</strong></td>
+<td>0</td>
+</tr>
+<tr>
+<td>4</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td><strong>θ₄</strong></td>
+</tr>
+<tr>
+<td>5</td>
+<td>−90°</td>
+<td>0</td>
+<td>0</td>
+<td><strong>θ₅</strong></td>
+</tr>
+<tr>
+<td>6</td>
+<td>90°</td>
+<td>0</td>
+<td>0</td>
+<td><strong>θ₆</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>a는 모두 0이다.</strong> 이웃한 축이 전부 만나거나 겹치기 때문이다.</li>
+<li><strong>상수 길이는 d₂ 하나뿐이다.</strong> 받침 축에서 팔대까지 옆으로 비켜 있는 거리다. 교수는 변수 d와 헷갈리지 않게 L₂라 부르고 싶다고 말한다.</li>
+<li><strong>α는 쉽게 확인된다.</strong> x축이 모두 앞을 보니, 엄지를 앞으로 두고 z가 어떻게 도는지만 본다. 위 → 오른쪽이면 −90°, 오른쪽 → 위면 +90°다.</li>
+</ul>
+<p>표가 손목 중심에서 끝나고, 집게 끝까지의 거리는 없다. 손에 무엇을 쥐느냐에 따라 공구 끝이 바뀌기 때문이다. 그래서 손목 중심까지만 표로 계산해 둔다.</p>
+<p>공구는 나중에 상수 변환 하나(⁶T<sub>tool</sub>)를 뒤에 곱해 붙인다. 공구를 바꿔도 앞의 계산은 그대로 쓴다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=2143">35:43 z축 놓기</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=2237">37:17 원점 넷이 한 점</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=2428">40:28 공구 좌표계는 나중에</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=2520">42:00 표 채우기</a></p>
+<h2>5.5 표 한 줄 = 변환 하나</h2>
+<p>표의 줄마다 네 숫자를 아래 식에 넣으면 4×4 변환이 하나씩 나온다. 5.1절의 기본 변환 네 개를 곱한 결과다.</p>
+<div class="math" data-tex="{}^{i-1}_{\;\;i}T=\begin{bmatrix}
+c\theta_i &amp; -s\theta_i &amp; 0 &amp; a_{i-1}\\
+s\theta_i\,c\alpha_{i-1} &amp; c\theta_i\,c\alpha_{i-1} &amp; -s\alpha_{i-1} &amp; -s\alpha_{i-1}\,d_i\\
+s\theta_i\,s\alpha_{i-1} &amp; c\theta_i\,s\alpha_{i-1} &amp; c\alpha_{i-1} &amp; c\alpha_{i-1}\,d_i\\
+0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<blockquote>
+<p><strong>수학 더하기: 줄여 쓰기.</strong> 식이 길어지니 로봇 책은 cos와 sin을 한 글자로 줄인다. c₁ = cos θ₁, s₂ = sin θ₂, cα = cos α다. 각도를 더한 것은 c₁₂ = cos(θ₁ + θ₂)처럼 쓴다. 이 장의 식은 모두 이렇게 읽는다.</p>
+</blockquote>
+<h3>α가 0, −90°, 90°일 때</h3>
+<p>Scheinman 팔 표의 α는 0, −90°, 90° 셋뿐이다. cos과 sin이 0, 1, −1이 되니 모양이 세 가지뿐이다. 첫 줄 (cθ, −sθ, 0, a)와 넷째 줄 (0, 0, 0, 1)은 늘 같고, 가운데 두 줄만 바뀐다.</p>
+<table>
+<thead>
+<tr>
+<th>α<sub>i−1</sub></th>
+<th>둘째 줄</th>
+<th>셋째 줄</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>(sθ, cθ, 0, 0)</td>
+<td>(0, 0, 1, d)</td>
+</tr>
+<tr>
+<td>−90°</td>
+<td>(0, 0, 1, d)</td>
+<td>(−sθ, −cθ, 0, 0)</td>
+</tr>
+<tr>
+<td>90°</td>
+<td>(0, 0, −1, −d)</td>
+<td>(sθ, cθ, 0, 0)</td>
+</tr>
+</tbody>
+</table>
+<h3>Scheinman 팔의 변환 여섯 개</h3>
+<p>표의 줄을 하나씩 넣는다. 둘째 줄을 예로 들면 α = −90°, a = 0, d = d₂, θ = θ₂다.</p>
+<div class="math" data-tex="{}^{0}_{1}T=\begin{bmatrix}c_1&amp;-s_1&amp;0&amp;0\\s_1&amp;c_1&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\qquad
+{}^{1}_{2}T=\begin{bmatrix}c_2&amp;-s_2&amp;0&amp;0\\0&amp;0&amp;1&amp;d_2\\-s_2&amp;-c_2&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<div class="math" data-tex="{}^{2}_{3}T=\begin{bmatrix}1&amp;0&amp;0&amp;0\\0&amp;0&amp;-1&amp;-d_3\\0&amp;1&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\qquad
+{}^{3}_{4}T=\begin{bmatrix}c_4&amp;-s_4&amp;0&amp;0\\s_4&amp;c_4&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<div class="math" data-tex="{}^{4}_{5}T=\begin{bmatrix}c_5&amp;-s_5&amp;0&amp;0\\0&amp;0&amp;1&amp;0\\-s_5&amp;-c_5&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}\qquad
+{}^{5}_{6}T=\begin{bmatrix}c_6&amp;-s_6&amp;0&amp;0\\0&amp;0&amp;-1&amp;0\\s_6&amp;c_6&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<p>눈여겨볼 것 세 가지:</p>
+<ol>
+<li><strong>행렬마다 변수가 하나다.</strong> 표의 줄마다 변수가 하나였기 때문이다.</li>
+<li><strong>²T₃의 변수 d₃는 넷째 열에만 있다.</strong> 회전 부분은 상수다. 직동 관절은 돌지 않고 밀기만 한다.</li>
+<li><strong>손목의 세 행렬은 넷째 열이 모두 0이다.</strong> 원점이 모두 손목 중심 한 점이기 때문이다.</li>
+</ol>
+<p>²T₃의 넷째 열 (0, −d₃, 0)은 팔대가 {2}의 −y 쪽으로 나간다는 뜻이다. α₂ = 90°라서 z₃가 −y₂ 방향이기 때문이다. 그림 5-3에서 y₂ = z₂ × x₂는 아래를 보니, 위로 나가는 팔대와 맞는다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=3181">53:01 표 한 줄마다 변환 하나</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3244">54:04 첫 변환</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3308">55:08 둘째와 셋째 변환</a></p>
+<h2>5.6 받침 쪽부터 차례로 곱하기</h2>
+<p>여섯 행렬을 모두 곱하면 받침에서 손까지의 변환이 된다. 2장 끝에서 본 "글자가 도미노처럼 이어지는" 곱셈이다.</p>
+<div class="math" data-tex="{}^{0}_{6}T={}^{0}_{1}T\;{}^{1}_{2}T\;{}^{2}_{3}T\;{}^{3}_{4}T\;{}^{4}_{5}T\;{}^{5}_{6}T"></div>
+<blockquote>
+<p><strong>수학 더하기: 곱하는 순서와 묶는 방법.</strong> 행렬 곱은 순서를 바꾸면 답이 달라진다. AB와 BA는 보통 다르다. 하지만 묶는 방법은 자유다. (AB)C와 A(BC)는 같다. 그래서 여섯 행렬을 어디서부터 묶어 곱해도 ⁰T₆는 같다.</p>
+</blockquote>
+<p>어디부터 묶어도 되지만, 강의는 받침 쪽(왼쪽)부터 하나씩 곱하라고 한다. ⁰T₂ = ⁰T₁ ¹T₂, ⁰T₃ = ⁰T₂ ²T₃처럼 간다. 중간 결과 ⁰T<sub>i</sub>가 모두 쓸모가 있기 때문이다.</p>
+<figure data-fig="fig5_4"><div class="fig-title">받침 쪽부터 곱하면 중간 결과가 하나씩 남는다</div><div class="fig-body"></div><div class="fig-note">중간 결과 ⁰T<sub>i</sub>의 셋째 열은 z<sub>i</sub>를 받침에서 본 방향이다. 6장의 자코비안이 이 열들을 쓴다.</div><figcaption>그림 5-4 · ⁰T₁부터 ⁰T₆까지 차례로 곱하기</figcaption></figure>
+<h3>두 번 곱하면: ⁰T₂</h3>
+<div class="math" data-tex="{}^{0}_{2}T={}^{0}_{1}T\;{}^{1}_{2}T=\begin{bmatrix}c_1c_2&amp;-c_1s_2&amp;-s_1&amp;-s_1d_2\\ s_1c_2&amp;-s_1s_2&amp;c_1&amp;c_1d_2\\ -s_2&amp;-c_2&amp;0&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<p>셋째 열 (−s₁, c₁, 0)은 받침에서 본 z₂, 곧 어깨축의 방향이다. 받침이 θ₁만큼 돌면 어깨축도 수평면에서 따라 돈다.</p>
+<p>넷째 열은 O₂의 위치다. 받침 축에서 어깨축을 따라 d₂만큼 옆이다.</p>
+<h3>세 번 곱하면: ⁰T₃와 손목 중심</h3>
+<div class="math" data-tex="{}^{0}_{3}T=\begin{bmatrix}c_1c_2&amp;-s_1&amp;c_1s_2&amp;c_1s_2d_3-s_1d_2\\ s_1c_2&amp;c_1&amp;s_1s_2&amp;s_1s_2d_3+c_1d_2\\ -s_2&amp;0&amp;c_2&amp;c_2d_3\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<p>셋째 열 (c₁s₂, s₁s₂, c₂)는 팔대 방향 z₃다. θ₂ = 0이면 (0, 0, 1), 곧 똑바로 위다.</p>
+<p>넷째 열은 손목 중심의 위치다. 풀어 보면 "옆으로 d₂, 팔대 방향으로 d₃"를 더한 것이다.</p>
+<div class="math" data-tex="{}^{0}P_{w}=d_2\begin{bmatrix}-s_1\\c_1\\0\end{bmatrix}+d_3\begin{bmatrix}c_1s_2\\s_1s_2\\c_2\end{bmatrix}"></div>
+<p>숫자로 해 보자. d₂ = 15 cm, θ₁ = 90°, θ₂ = 30°, d₃ = 40 cm다. 그러면 c₁ = 0, s₁ = 1, s₂ = 0.5, c₂ ≈ 0.866이다.</p>
+<p>손목 중심은 (0 − 15, 20 + 0, 34.6) = <strong>(−15, 20, 34.6) cm</strong>다. 그림 5-5의 처음 자세가 이것이다.</p>
+<h3>손목은 위치를 바꾸지 못한다</h3>
+<p>⁰T₄, ⁰T₅, ⁰T₆을 계속 곱해도 넷째 열은 ⁰T₃와 똑같다. 손목 행렬의 넷째 열이 0이라서, 곱해도 위치에 더해지는 것이 없다. 손목 관절 셋은 손의 방향만 바꾼다.</p>
+<p>아래 그림에서 직접 확인해 보자.</p>
+<figure data-fig="fig5_5"><div class="fig-title">손목 관절은 손 방향만 바꾸고, 위치는 앞의 세 관절이 정한다</div><div class="fig-body"></div><div class="fig-note">점선은 손목 중심에서 받침 높이의 수평면에 내린 수선이다. 주황 점이 손목 중심, 주황 집게가 손이다.</div><figcaption>그림 5-5 · 직접 움직여 보기: Scheinman 팔 (d₂ = 15 cm)</figcaption></figure>
+<p>해 볼 것 세 가지:</p>
+<ol>
+<li>θ₅만 움직인다. 손은 꺾이지만 손목 중심의 숫자는 그대로다.</li>
+<li>θ₁ = 0, θ₂ = 0으로 둔다. 그림 5-3의 자세다. 손목 중심은 (0, 15, d₃)다.</li>
+<li>아무 관절이나 움직여 본다. 원점에서 손목 중심까지의 거리는 d₃가 바뀔 때만 바뀐다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 왜 거리에 θ₁, θ₂가 들어가지 않을까?</p>
+</blockquote>
+<p>어깨축 방향(−s₁, c₁, 0)과 팔대 방향(c₁s₂, s₁s₂, c₂)은 늘 수직이다. 내적이 −s₁c₁s₂ + c₁s₁s₂ = 0이기 때문이다.</p>
+<p>직각삼각형이니 거리² = d₂² + d₃²다. 그래서 손목 중심이 닿는 곳은 두꺼운 공 껍질 모양이 된다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=3403">56:43 곱해서 순기구학 구하기</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3434">57:14 왼쪽부터 곱하는 까닭</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3528">58:48 ⁰T₃ 읽기</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3560">59:20 넷째 열은 그대로</a></p>
+<h2>5.7 ⁰T₆ 읽기: 열마다 뜻이 있다</h2>
+<p>곱한 결과는 숫자 덩어리가 아니다. 2장에서 배운 대로 열마다 뜻이 정해져 있다. 회전 부분의 열은 손의 축이고, 넷째 열은 손의 위치다.</p>
+<div class="math" data-tex="{}^{0}_{6}T=\begin{bmatrix}{}^{0}\hat X_6&amp;{}^{0}\hat Y_6&amp;{}^{0}\hat Z_6&amp;{}^{0}P_{6\,org}\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<h3>종이 팔로 먼저</h3>
+<p>4장(4.9절)에서 종이 팔의 ⁰T<sub>H</sub>를 구했다. 손 좌표계 {H}는 손끝에 있고 방향은 링크 2와 같다.</p>
+<div class="math" data-tex="{}^{0}_{H}T=\begin{bmatrix}c_{12}&amp;-s_{12}&amp;0&amp;10c_1+8c_{12}\\ s_{12}&amp;c_{12}&amp;0&amp;10s_1+8s_{12}\\ 0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<p>이번에는 열마다 읽어 보자. 첫 열 (c₁₂, s₁₂, 0)은 손의 x축으로, 링크 2와 같은 방향(θ₁ + θ₂)을 본다. 둘째 열은 그보다 90° 더 돈 y축, 셋째 열 (0, 0, 1)은 책상에서 위를 보는 z축이다. 넷째 열은 1장의 손끝 식 그대로다.</p>
+<figure data-fig="fig5_6"><div class="fig-title">앞의 세 열은 손의 축, 넷째 열은 손의 위치</div><div class="fig-body"></div><div class="fig-note">파란 열과 파란 화살표, 주황 열과 주황 화살표가 같은 것이다. 점선 화살표 p가 넷째 열이다.</div><figcaption>그림 5-6 · 직접 돌려 보기: ⁰T<sub>H</sub>의 열과 손 좌표계</figcaption></figure>
+<p>슬라이더를 움직이며 열과 화살표를 맞춰 보자. θ₁ + θ₂ = 0°이면 첫 열이 (1, 0, 0)이 된다. 손의 x축이 받침의 x₀과 나란하다는 뜻이다. θ₁ + θ₂ = 90°이면 첫 열이 (0, 1, 0)이 되어 손이 y₀ 쪽을 본다.</p>
+<h3>Scheinman 팔의 ⁰T₆</h3>
+<p>넷째 열은 5.6절의 손목 중심과 같다. 셋째 열은 손이 향하는 방향 z₆다.</p>
+<div class="math" data-tex="{}^{0}\hat Z_6=\begin{bmatrix} c_1(c_2c_4s_5+s_2c_5)-s_1s_4s_5\\ s_1(c_2c_4s_5+s_2c_5)+c_1s_4s_5\\ -s_2c_4s_5+c_2c_5\end{bmatrix}"></div>
+<p>첫째, 둘째 열은 더 길다. 외울 필요는 없고, 숙제 답을 맞춰 볼 때 쓴다.</p>
+<div class="math" data-tex="{}^{0}\hat X_6=\begin{bmatrix} c_1\left[c_2(c_4c_5c_6-s_4s_6)-s_2s_5c_6\right]-s_1(s_4c_5c_6+c_4s_6)\\ s_1\left[c_2(c_4c_5c_6-s_4s_6)-s_2s_5c_6\right]+c_1(s_4c_5c_6+c_4s_6)\\ -s_2(c_4c_5c_6-s_4s_6)-c_2s_5c_6\end{bmatrix}"></div>
+<div class="math" data-tex="{}^{0}\hat Y_6=\begin{bmatrix} c_1\left[-c_2(c_4c_5s_6+s_4c_6)+s_2s_5s_6\right]-s_1(-s_4c_5s_6+c_4c_6)\\ s_1\left[-c_2(c_4c_5s_6+s_4c_6)+s_2s_5s_6\right]+c_1(-s_4c_5s_6+c_4c_6)\\ s_2(c_4c_5s_6+s_4c_6)+c_2s_5s_6\end{bmatrix}"></div>
+<p>구조를 보면 c₁, s₁이 바깥에 있고 손목 각도는 안쪽에 있다. 받침이 돌면 손목이 만든 방향 전체가 통째로 따라 돈다는 뜻이다. 교수 말대로 위치만 보면 쉽고, 방향까지 보면 금세 복잡해진다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> θ₄ = θ₆ = 0이면 z₆가 훨씬 간단해진다. 위 식에 s₄ = 0, c₄ = 1을 넣어 보자.</p>
+</blockquote>
+<p>z₆ = (c₁ sin(θ₂ + θ₅), s₁ sin(θ₂ + θ₅), cos(θ₂ + θ₅))가 된다. θ₅가 θ₂에 그대로 더해진다.</p>
+<p>θ₄ = 0이면 축 5가 어깨축과 나란해서, 둘이 같은 면에서 꺾기 때문이다. 그림 5-5의 둘째 줄 숫자로 확인할 수 있다.</p>
+<h3>방향을 숫자 몇 개로 적을까</h3>
+<p>손의 위치는 넷째 열의 (x, y, z) 셋이면 된다. 방향은 고를 수 있다.</p>
+<ul>
+<li><strong>방향 코사인</strong>: 회전 부분 9개 숫자를 그대로 쓴다. 강의가 권하는 가장 쉬운 방법이다.</li>
+<li><strong>오일러 각</strong>: 각도 셋으로 줄인다(3장). 9개 숫자에서 세 각도를 뽑을 때 짐벌 잠금 자세(3.9절)를 조심해야 한다.</li>
+</ul>
+<p>어느 쪽이든 실제 계산은 숫자로 한다. 엔코더에서 θ₁을 읽어 c₁ 값을 넣는 식이다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 손으로 곱한 ⁰T₆가 맞는지는 두 가지로 잡는다. (1) 쉬운 자세를 넣어 그림과 맞춰 본다. Scheinman 팔은 θ가 모두 0이면 회전 부분이 단위행렬, 위치가 (0, d₂, d₃)여야 한다. (2) 아무 숫자나 넣어 회전 부분의 열 길이가 1이고 서로 수직인지 본다(2장).</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=3593">59:53 ⁰T₆</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3656">1:00:56 위치와 방향 고르기</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3720">1:02:00 방향 코사인</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3817">1:03:37 오일러 각 뽑기</a></p>
+<h2>5.8 순기구학 순서 정리</h2>
+<p>어떤 팔이든 순기구학은 같은 순서로 구한다. 4장과 이 장에서 한 것을 한 줄씩 모으면 이렇다.</p>
+<ol>
+<li><strong>도식을 그린다.</strong> 관절 기호로 그리고, 관절을 하나씩 움직여 보며 손이 어떻게 가는지 그려 본다.</li>
+<li><strong>축과 공통 수선을 찾는다.</strong> 만나는 축, 나란한 축, 꼬인 축을 구별한다.</li>
+<li><strong>좌표계를 붙인다.</strong> 원점 → z축 → x축 순서로 한다. 상수는 되도록 0이 되게 고른다.</li>
+<li><strong>DH 표를 채운다.</strong> "그림의 자세" 열도 함께 적는다.</li>
+<li><strong>줄마다 ⁱ⁻¹T<sub>i</sub>를 만든다.</strong> α가 0, ±90°이면 5.5절의 세 모양을 쓴다.</li>
+<li><strong>받침 쪽부터 곱한다.</strong> ⁰T₁, ⁰T₂, …, ⁰T<sub>n</sub>을 차례로 만들고 중간 결과도 남긴다.</li>
+<li><strong>읽는다.</strong> 넷째 열이 위치, 앞의 세 열이 방향이다.</li>
+<li><strong>공구를 붙인다.</strong> ⁰T<sub>tool</sub> = ⁰T<sub>n</sub> ⁿT<sub>tool</sub>이다. 뒤쪽은 상수다.</li>
+<li><strong>확인한다.</strong> 0°, 90° 같은 쉬운 자세를 넣어 그림과 맞는지 본다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 그림 5-2의 RPRR 팔에 L₂ = 3, L₄ = 2, L₅ = 5 cm, d₂ = 10 cm를 넣는다. 다른 관절은 모두 0이다. ⁰T₅의 넷째 열을 계산하지 말고 그림만 보고 맞혀 보자.</p>
+</blockquote>
+<p>(0, 15, 5) cm다. 앞뒤(x₀)로는 0, 오른쪽(y₀)으로 d₂ + L₅ = 15, 위(z₀)로 L₂ + L₄ = 5다. 9단계의 "쉬운 자세로 확인"이 바로 이것이다.</p>
+<h3>다음 강의 미리 보기</h3>
+<p>강의 마지막에 교수는 중간 결과를 남겨 둔 까닭을 말한다. 자코비안의 절반은 중간 결과들의 셋째 열, 곧 받침에서 본 z₁, z₂, …로 만든다.</p>
+<p>나머지 절반은 넷째 열의 (x, y, z)를 미분해서 만든다. 6장에서 이것을 배운다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/u79KfNgP1Cc?t=2490">41:30 손목 중심까지 계산하고 공구는 따로</a> · <a href="https://youtu.be/u79KfNgP1Cc?t=3878">1:04:38 다음 시간: 자코비안</a></p>
+<h2>5.9 보충: 2관절 종이 팔의 역기구학</h2>
+<p>이 절은 강의에 없는 내용이다. 종이 팔을 직접 만들어 움직이려면 "손끝을 (x, y)에 두려면 몇 도로 돌리나"를 풀어야 한다.</p>
+<p>1장에서 말한 <strong>역기구학</strong>(inverse kinematics)이다. 관절이 두 개면 고등학교 삼각함수로 풀린다.</p>
+<figure data-fig="fig5_7"><div class="fig-title">받침, 팔꿈치, 목표가 삼각형을 이룬다</div><div class="fig-body"></div><div class="fig-note">목표 (6, 12) cm에 닿는 두 자세 가운데 팔꿈치가 오른쪽 아래로 꺾인 답이다. θ₁ = φ − β다.</div><figcaption>그림 5-7 · 코사인 법칙으로 θ₂를, 방향 차이로 θ₁을 구한다</figcaption></figure>
+<h3>1단계: 팔꿈치 각 θ₂는 코사인 법칙으로</h3>
+<p>받침 O에서 목표 P까지 거리를 r = √(x² + y²)이라 하자. 삼각형 O-팔꿈치-P의 세 변은 10, 8, r이다. 팔꿈치의 안쪽 각은 180° − θ₂다. θ₂는 링크 1을 늘인 선에서 쟀기 때문이다.</p>
+<blockquote>
+<p><strong>수학 더하기: 코사인 법칙.</strong> 삼각형의 두 변 b, c와 그 사이 각 A를 알면 마주 보는 변 a를 구한다. a² = b² + c² − 2bc cos A다. A = 90°이면 cos A = 0이라 피타고라스 정리가 된다. 또 cos(180° − θ) = −cos θ다.</p>
+</blockquote>
+<div class="math" data-tex="r^2 = 10^2 + 8^2 - 2\cdot10\cdot8\cos(180^\circ-\theta_2) = 164 + 160\cos\theta_2"></div>
+<div class="math" data-tex="\cos\theta_2 = \frac{x^2+y^2-164}{160}"></div>
+<div class="math" data-tex="\theta_2 = \pm\arccos\left(\frac{x^2+y^2-164}{160}\right)"></div>
+<p>답이 ± 두 개다. 같은 cos 값에 각도가 두 개 있기 때문이다.</p>
+<p>θ₂ &lt; 0이면 팔꿈치가 시계 방향으로 꺾이고, θ₂ &gt; 0이면 반대로 꺾인다. 목표가 받침 오른쪽에 있으면 θ₂ &lt; 0이 팔꿈치 위, θ₂ &gt; 0이 팔꿈치 아래 자세다(1장 그림 1-3).</p>
+<h3>2단계: 어깨 각 θ₁은 방향 두 개의 차이로</h3>
+<p>링크 1을 기준으로 보면 손끝은 (10 + 8 cos θ₂, 8 sin θ₂)에 있다. 이 점이 링크 1에서 돌아가 있는 각을 β라 하자. 받침에서 본 목표의 방향을 φ라 하면, 그림 5-7처럼 φ = θ₁ + β다. 그러니 θ₁ = φ − β다.</p>
+<div class="math" data-tex="\theta_1 = \operatorname{atan2}(y,\,x) - \operatorname{atan2}\big(8\sin\theta_2,\; 10+8\cos\theta_2\big)"></div>
+<p>atan2는 3장(3.8절)에서 배웠다. x와 y의 부호로 사분면까지 가려 −180°~180°의 각을 준다.</p>
+<p>목표가 받침 왼쪽(x &lt; 0)에 있어도 φ가 맞게 나오는 것은 이 덕분이다. 또 θ₂의 부호가 바뀌면 β의 부호도 따라 바뀐다. 그래서 이 식 하나가 두 답을 모두 맞게 준다.</p>
+<h3>예: 목표 (12, 6) cm</h3>
+<ol>
+<li>r² = 144 + 36 = 180, cos θ₂ = (180 − 164)/160 = 0.1이다. θ₂ = ±84.3°다.</li>
+<li>θ₂ = −84.3°이면 β = atan2(−7.96, 10.8) = −36.4°다. φ = atan2(6, 12) = 26.6°이므로 θ₁ = 26.6° + 36.4° = <b>63.0°</b>다.</li>
+<li>θ₂ = +84.3°이면 β = +36.4°라서 θ₁ = 26.6° − 36.4° = <b>−9.8°</b>다.</li>
+</ol>
+<p>1장 그림 1-3의 두 답(63°, −84°)과 (−10°, 84°)가 이것이다. 구한 각도를 순기구학에 다시 넣으면 확인할 수 있다. 10 cos 63.0° + 8 cos(63.0° − 84.3°) ≈ 4.54 + 7.45 = 12.0이다.</p>
+<figure data-fig="fig5_8"><div class="fig-title">목표를 옮기면 두 자세가 따라오고, 고리 밖에서는 답이 없다</div><div class="fig-body"></div><div class="fig-note">검은 동그라미가 목표, 파란 팔이 답 1(θ₂ ≤ 0), 주황 팔이 답 2(θ₂ ≥ 0)다. 회색 고리가 손끝이 닿는 곳이다.</div><figcaption>그림 5-8 · 직접 해 보기: 종이 팔 역기구학 (링크 10 cm + 8 cm)</figcaption></figure>
+<h3>닿는 곳과 그 경계</h3>
+<p>cos θ₂는 −1과 1 사이여야 한다. 위 식에 넣으면 4 ≤ r² ≤ 324, 곧 <strong>2 ≤ r ≤ 18 cm</strong>다. 그림 5-8의 회색 고리가 이 영역이다.</p>
+<ul>
+<li><strong>r &gt; 18 또는 r &lt; 2</strong>: cos θ₂가 1보다 크거나 −1보다 작다. arccos가 없으니 답이 없다.</li>
+<li><strong>r = 18 (바깥 경계)</strong>: cos θ₂ = 1, θ₂ = 0이다. 두 답이 팔을 쭉 편 자세 하나로 합쳐진다.</li>
+<li><strong>r = 2 (안쪽 경계)</strong>: cos θ₂ = −1, θ₂ = ±180°다. 팔을 완전히 접은 자세인데, 실제 종이 팔은 링크끼리 부딪혀 여기까지 접지 못한다.</li>
+</ul>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 그림 5-8에서 목표를 (18, 0)에 두고 x를 17.5로 조금만 줄여 보자. θ₂는 얼마나 바뀔까?</p>
+</blockquote>
+<p>0°에서 ±27.2°로 확 바뀐다. 손끝은 0.5 cm 움직였는데 팔꿈치는 27°나 돈다.</p>
+<p>경계 근처에서는 작은 목표 변화에 각도가 크게 흔들린다. 1장에서 본 특이점의 모습이고, 7장에서 자코비안으로 다시 본다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 컴퓨터로 풀 때 흔한 실수가 둘 있다. (1) 목표가 경계 바로 위면 반올림 오차로 cos θ₂가 1.0000001이 되어 arccos가 오류를 낸다. r을 먼저 확인하고, 값은 −1~1로 잘라서 넣는다. (2) 서보는 보통 돌 수 있는 범위가 정해져 있다. 두 답 가운데 하나는 그 범위 밖일 수 있으니, 답을 고른 뒤 범위를 확인한다.</p>
+</blockquote>
+<h3>관절이 6개인 팔은?</h3>
+<p>관절이 6개면 식이 훨씬 어렵다. 그런데 Scheinman 팔처럼 <strong>구형 손목</strong>이 있으면 문제를 둘로 쪼갤 수 있다. 손목 관절은 손목 중심을 옮기지 못하기 때문이다(5.6절).</p>
+<ol>
+<li><strong>위치</strong>: 원하는 손 위치에서 손 방향 z₆를 따라 손 길이만큼 되돌아가면 손목 중심이 나온다. 앞의 세 관절로 이 점에 닿게 푼다. 종이 팔처럼 삼각함수 몇 개로 풀린다.</li>
+<li><strong>방향</strong>: 앞 세 관절을 알면 ⁰R₃를 안다. 남은 회전 ³R₆ = (⁰R₃)ᵀ ⁰R₆에서 손목 각도 셋을 뽑는다. 3장(3.8절)의 오일러 각 뽑기와 같은 일이다.</li>
+</ol>
+<p>Scheinman 팔은 1단계가 특히 쉽다. 5.6절의 거리 공식에서 d₃ = √(|p|² − d₂²)가 바로 나온다. 손목 세 축이 한 점에서 만나도록 만든 산업용 팔이 많은 것도 이렇게 풀기 쉬워서다.</p>
+<p>영상에서 보기: 이 절은 강의에 없다. 손목 중심을 따로 다루는 장면은 <a href="https://youtu.be/u79KfNgP1Cc?t=2490">41:30 손목 중심까지 먼저 계산하기</a>다.</p>
+<h2>5.10 연습문제</h2>
+<p>종이에 축을 그리고 오른손으로 방향을 확인하며 푼다. 답은 문제 7개 아래에 있다.</p>
+<ol>
+<li>종이 팔의 ⁰T<sub>H</sub>를 줄별로 적으면 (0, −1, 0, 8.66), (1, 0, 0, 13), (0, 0, 1, 0), (0, 0, 0, 1)이다. 손은 어느 쪽을 보고, 손끝은 어디인가? θ₁과 θ₂는 얼마인가? 그림 5-6으로 확인하라.</li>
+<li>그림 5-2의 RPRR 팔(L₂ = 3, L₄ = 2, L₅ = 5, d₂ = 10 cm)에서 θ₃만 90°로 돌렸다. 손 원점 {5}는 {0}에서 어디이고, z₅는 어느 쪽을 보나?</li>
+<li>Scheinman 팔(d₂ = 15 cm)에서 θ₁ = 180°, θ₂ = 90°, d₃ = 30 cm이다. 손목 중심은 어디인가? 그림 5-5로 확인하라.</li>
+<li>Scheinman 팔에서 θ₁ = 0, θ₂ = 90°, d₃ = 40 cm, θ₄ = 0, θ₅ = −90°, θ₆ = 0이다. ⁰T₆을 구하고, 회전 부분이 무슨 뜻인지 말하라.</li>
+<li>Scheinman 팔의 손목 중심이 받침 원점에서 25 cm 떨어져 있다. d₂ = 15 cm이면 d₃는 얼마인가? 이것만으로 θ₁, θ₂도 알 수 있나?</li>
+<li>종이 팔의 손끝을 (10, 8) cm에 두는 두 자세를 구하라. 하나는 계산하지 않아도 보인다.</li>
+<li>종이 팔이 아래 목표에 닿을 수 있는지, 답이 몇 개인지 말하라. (20, 0), (1, 1), (0, −18), (5, 5)</li>
+</ol>
+<h3>답</h3>
+<p><strong>답 1.</strong> 첫 열 (0, 1, 0)이 손의 x축이다. 손은 y₀ 쪽을 보고, θ₁ + θ₂ = 90°다. 넷째 열에서 손끝은 (8.66, 13) cm다.</p>
+<p>이제 1장의 식에 c₁₂ = 0, s₁₂ = 1을 넣는다. 10c₁ = 8.66에서 c₁ = 0.866, 10s₁ + 8 = 13에서 s₁ = 0.5다. 그래서 θ₁ = 30°, θ₂ = 90° − 30° = 60°다.</p>
+<p><strong>답 2.</strong> z₃(⊙)를 엄지로 두면 +90°는 시계 반대 방향이다. 그래서 관절 3이 손을 위로 세운다.</p>
+<p>z₄ = z₅는 위(z₀)를, x₃ = x₄는 왼쪽(−y₀)을 본다. O₅ = O₃ + L₄x₄ + L₅z₄ = (0, 10, 3) + 2 × (0, −1, 0) + 5 × (0, 0, 1) = <strong>(0, 8, 8) cm</strong>다.</p>
+<div class="math" data-tex="{}^{0}_{5}T=\begin{bmatrix}0&amp;1&amp;0&amp;0\\-1&amp;0&amp;0&amp;8\\0&amp;0&amp;1&amp;8\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<p><strong>답 3.</strong> c₁ = −1, s₁ = 0, s₂ = 1, c₂ = 0이다. (c₁s₂d₃ − s₁d₂, s₁s₂d₃ + c₁d₂, c₂d₃) = (−30, −15, 0)이다.</p>
+<p>답은 <strong>(−30, −15, 0) cm</strong>다. 받침이 뒤로 돌아서 팔대가 −x₀ 쪽으로 누웠고, 옆 비킴도 −y₀ 쪽으로 바뀌었다.</p>
+<p><strong>답 4.</strong> 위치는 (c₁s₂d₃ − s₁d₂, s₁s₂d₃ + c₁d₂, c₂d₃) = (40, 15, 0) cm다. 5.7절의 식에 넣으면 회전 부분은 단위행렬이 된다.</p>
+<p>손의 세 축이 받침의 세 축과 나란하다는 뜻이다. 팔대는 x₀ 쪽으로 누웠지만, θ₅ = −90°가 손을 다시 위로 세웠다. z₆ = (c₁ sin 0°, s₁ sin 0°, cos 0°) = (0, 0, 1)로도 확인된다.</p>
+<div class="math" data-tex="{}^{0}_{6}T=\begin{bmatrix}1&amp;0&amp;0&amp;40\\0&amp;1&amp;0&amp;15\\0&amp;0&amp;1&amp;0\\0&amp;0&amp;0&amp;1\end{bmatrix}"></div>
+<p><strong>답 5.</strong> 거리² = d₂² + d₃²이므로 25² = 15² + d₃², d₃ = √(625 − 225) = <strong>20 cm</strong>다. θ₁, θ₂는 알 수 없다.</p>
+<p>거리는 θ₁, θ₂와 상관없기 때문이다. 손목 중심의 (x, y, z)를 모두 알아야 두 각도를 구한다.</p>
+<p><strong>답 6.</strong> cos θ₂ = (100 + 64 − 164)/160 = 0이라 θ₂ = ±90°다.</p>
+<ul>
+<li>θ₂ = 90°: θ₁ = atan2(8, 10) − atan2(8, 10) = <b>0°</b>다. 링크 1이 x축을 따라 (10, 0)까지 가고, 링크 2가 위로 8 cm 선다. 계산 없이 보이는 답이다.</li>
+<li>θ₂ = −90°: θ₁ = 38.66° + 38.66° = <b>77.3°</b>다. 확인: 10 cos 77.3° + 8 cos(−12.7°) = 2.2 + 7.8 = 10.0, 10 sin 77.3° + 8 sin(−12.7°) = 9.76 − 1.76 = 8.0이다.</li>
+</ul>
+<p><strong>답 7.</strong></p>
+<ul>
+<li>(20, 0): r = 20 &gt; 18이라 <strong>0개</strong>다.</li>
+<li>(1, 1): r ≈ 1.41 &lt; 2라 <strong>0개</strong>다.</li>
+<li>(0, −18): r = 18, 바깥 경계라 <strong>1개</strong>다. θ₁ = −90°, θ₂ = 0, 팔을 쭉 펴서 아래로 뻗는다.</li>
+<li>(5, 5): r ≈ 7.07이라 <strong>2개</strong>다. cos θ₂ = −0.71, θ₂ = ±135.4°로 팔을 많이 접는다.</li>
+</ul>
+<h3>파이썬으로 확인</h3>
+<p>DH 표를 그대로 넣어 곱하는 함수와, 종이 팔 역기구학 함수다. 역기구학 답은 순기구학에 다시 넣어 목표가 나오는지 확인한다. 주석의 값이 그대로 나온다.</p>
+<pre><code class="language-python">import numpy as np
+
+def dh(alpha, a, d, theta):
+    &quot;&quot;&quot;DH 표 한 줄(도 단위) -&gt; 4×4 변환. Craig 방식: R_X(α) D_X(a) R_Z(θ) D_Z(d).&quot;&quot;&quot;
+    al, th = np.radians(alpha), np.radians(theta)
+    ca, sa, ct, st = np.cos(al), np.sin(al), np.cos(th), np.sin(th)
+    return np.array([[ct,      -st,      0,   a],
+                     [st * ca, ct * ca, -sa, -sa * d],
+                     [st * sa, ct * sa,  ca,  ca * d],
+                     [0,       0,        0,   1]])
+
+def fk(table):
+    &quot;&quot;&quot;표의 줄을 받침 쪽(왼쪽)부터 차례로 곱한다.&quot;&quot;&quot;
+    T = np.eye(4)
+    for row in table:
+        T = T @ dh(*row)
+    return T
+
+def paper(t1, t2):          # 종이 팔: (α, a, d, θ)
+    return [(0, 0, 0, t1), (0, 10, 0, t2), (0, 8, 0, 0)]
+
+def rprr(t1, d2, t3, t4, L2=3, L4=2, L5=5):
+    return [(0, 0, 0, t1), (-90, 0, d2, -90), (-90, L2, 0, t3), (90, 0, 0, t4), (0, L4, L5, 0)]
+
+def scheinman(t1, t2, d3, t4, t5, t6, d2=15):
+    return [(0, 0, 0, t1), (-90, 0, d2, t2), (90, 0, d3, 0),
+            (0, 0, 0, t4), (-90, 0, 0, t5), (90, 0, 0, t6)]
+
+def ik(x, y, l1=10, l2=8):
+    &quot;&quot;&quot;종이 팔 역기구학. 답 (θ1, θ2) 목록을 도 단위로 돌려준다. 닿지 않으면 빈 목록.&quot;&quot;&quot;
+    c2 = (x * x + y * y - l1 * l1 - l2 * l2) / (2 * l1 * l2)
+    if abs(c2) &gt; 1 + 1e-12:
+        return []
+    c2 = np.clip(c2, -1, 1)
+    out = []
+    for t2 in sorted({-np.arccos(c2), np.arccos(c2)}):
+        t1 = np.arctan2(y, x) - np.arctan2(l2 * np.sin(t2), l1 + l2 * np.cos(t2))
+        t1 = (t1 + np.pi) % (2 * np.pi) - np.pi    # −180°~180°로 맞춘다
+        out.append((np.degrees(t1), np.degrees(t2)))
+    return out
+
+np.set_printoptions(precision=2, suppress=True)
+show = lambda M: print(np.round(M, 9) + 0.0)   # -0. 을 0. 으로
+
+# 문제 1: 종이 팔 θ1 = 30°, θ2 = 60°이면 문제의 행렬이 나온다
+show(fk(paper(30, 60)))     # [[ 0. -1. 0. 8.66] [ 1. 0. 0. 13. ] [ 0. 0. 1. 0. ] [ 0. 0. 0. 1. ]]
+# 5.8절과 문제 2: RPRR 팔
+show(fk(rprr(0, 10, 0, 0))[:3, 3])          # [ 0. 15.  5.]
+show(fk(rprr(0, 10, 90, 0)))                # [[ 0. 1. 0. 0.] [-1. 0. 0. 8.] [ 0. 0. 1. 8.] [ 0. 0. 0. 1.]]
+# 5.6절 예와 문제 3: Scheinman 팔의 손목 중심
+show(fk(scheinman(90, 30, 40, 0, 0, 0))[:3, 3])    # [-15.    20.    34.64]
+show(fk(scheinman(180, 90, 30, 0, 0, 0))[:3, 3])   # [-30. -15.   0.]
+# 문제 4
+show(fk(scheinman(0, 90, 40, 0, -90, 0)))   # [[ 1. 0. 0. 40.] [ 0. 1. 0. 15.] [ 0. 0. 1. 0.] [ 0. 0. 0. 1.]]
+# 문제 5: 아무 각도나 넣어도 거리 = √(15² + 20²)
+p = fk(scheinman(37, 81, 20, 10, 20, 30))[:3, 3]
+print(round(np.linalg.norm(p), 6))          # 25.0
+# 문제 6, 7: 역기구학, 그리고 순기구학에 다시 넣어 확인
+for target in [(12, 6), (10, 8), (20, 0), (1, 1), (0, -18), (5, 5)]:
+    sols = ik(*target)
+    back = [fk(paper(t1, t2))[:2, 3] for t1, t2 in sols]
+    print(target, (np.round(sols, 2) + 0.0).tolist(), [(np.round(b, 2) + 0.0).tolist() for b in back])
+# (12, 6) [[62.96, -84.26], [-9.83, 84.26]] [[12.0, 6.0], [12.0, 6.0]]
+# (10, 8) [[77.32, -90.0], [0.0, 90.0]] [[10.0, 8.0], [10.0, 8.0]]
+# (20, 0) [] []
+# (1, 1) [] []
+# (0, -18) [[-90.0, 0.0]] [[0.0, -18.0]]
+# (5, 5) [[97.55, -135.44], [-7.55, 135.44]] [[5.0, 5.0], [5.0, 5.0]]
+</code></pre>
+<p>5.2절의 "x₃를 아래로" 질문도 이 코드로 확인할 수 있다. rprr의 셋째, 넷째 줄을 (−90, L2, 0, t3 + 180), (−90, 0, 0, t4 + 180)으로 바꿔도 fk의 결과가 똑같다.</p>
+<h3>스탠퍼드 숙제</h3>
+<p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 2에서 2번(RRP 팔의 도식, DH 표, ⁰T₃)과 3번(2RP2R 팔의 도식과 DH 표)은 4장과 이 장으로 풀 수 있다. 이 장의 RPRR 팔이 바로 그 연습이다. 1번은 연산자를 겹치는 순서 문제라 2.9절과 3.7절을 바탕으로 한다.</p>
+<p>Homework 3의 2번 (a)(평면 PR 팔에서 {3}의 원점 위치)도 이 장으로 풀 수 있다. 풀이는 같은 페이지의 Solution 2, 3에 있다.</p>
+<p>숙제의 표는 열 순서가 이 장과 다를 수 있으니 머리글을 보고 채운다. 축 방향을 다르게 골라도 맞을 수 있다. 표가 풀이와 다르면 마지막 ⁰T가 같은지로 비교한다.</p>
+<p>다 풀었으면 <a href="https://youtu.be/u79KfNgP1Cc">5강 영상</a>을 한 번 본다.</p>
+<div class="chapter-nav"><a href="ch4.html">← 4장. 링크를 숫자 네 개로 적기: DH 파라미터</a><a href="ch6.html">6장. 관절 속도에서 손끝 속도로: 자코비안 →</a></div>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+<script src="assets/figs/ch5.js"></script>
+<script>FigKit.renderAll();</script>
+</body>
+</html>
