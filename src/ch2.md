@@ -1,4 +1,5 @@
 # 2장. 위치와 방향을 숫자로 적기
+<!-- card: 강의 2강 · 자유도, 회전행렬, 동차변환 · 연습문제와 파이썬 확인 코드 -->
 
 <p class="lead">물체가 어디에 어느 방향으로 있는지는 회전행렬과 원점 위치로 적는다. 이 장은 평면(2차원)에서 먼저 익히고 3차원으로 넓힌다. 강의 2강(68분)에 해당한다.</p>
 
@@ -554,5 +555,3 @@ print(np.allclose(R.T @ R, np.eye(3)))      # True
 [스탠퍼드 강의 페이지](https://see.stanford.edu/Course/CS223A)의 Homework 1에서 1번(회전 두 번 겹치기)과 3번(동차변환의 역)은 이 장으로 풀 수 있다. 2번과 4번은 3강을 배운 뒤에 푼다. 풀이는 같은 페이지의 Solution 1에 있다.
 
 다 풀었으면 [2강 영상](https://youtu.be/QKyDrUonp98)을 한 번 본다.
-
-<div class="chapter-nav"><a href="ch1.html">← 1장</a><a href="./">처음으로 →</a></div>

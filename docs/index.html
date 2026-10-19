@@ -9,14 +9,14 @@
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<header class="top"><a href="./">처음</a><a href="ch1.html">1장</a><a href="ch2.html">2장</a></header>
+<header class="top"><a href="./">처음</a></header>
 <main>
 <h1>종이 팔로 배우는 로봇공학 입문</h1>
 <p class="lead">스탠퍼드 대학 CS223A 「로봇공학 입문」(Oussama Khatib 교수, 2008년, 16강)을 혼자 공부하려고 한국어로 새로 쓴 교재다. 책상 위 종이 팔 하나를 예로 들어, 그림과 직접 움직여 보는 그림으로 설명한다.</p>
 
-<p><a class="card" href="ch1.html"><b>1장. 로봇 팔은 무엇을 풀어야 하나</b><span>강의 1강 · 순기구학, 역기구학, 자코비안, 동역학, 제어를 수식 없이 그림으로</span></a></p>
-<p><a class="card" href="ch2.html"><b>2장. 위치와 방향을 숫자로 적기</b><span>강의 2강 · 자유도, 회전행렬, 동차변환 · 연습문제와 파이썬 확인 코드</span></a></p>
-<p>3장(강의 3강)부터는 이어서 쓰는 중이다.</p>
+<h2>목차</h2>
+<a class="card" href="ch1.html"><b>1장. 로봇 팔은 무엇을 풀어야 하나</b><span>강의 1강 · 순기구학, 역기구학, 자코비안, 동역학, 제어를 수식 없이 그림으로</span></a>
+<a class="card" href="ch2.html"><b>2장. 위치와 방향을 숫자로 적기</b><span>강의 2강 · 자유도, 회전행렬, 동차변환 · 연습문제와 파이썬 확인 코드</span></a>
 <h2>이 교재로 공부하는 법</h2>
 <ol>
 <li>장을 먼저 읽는다. 슬라이더가 있는 그림은 직접 움직여 본다.</li>
@@ -57,6 +57,7 @@
 <li>전사본, 유인물, 숙제와 풀이: <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere CS223A</a></li>
 <li>강의 자료는 스탠퍼드가 Creative Commons Attribution 3.0으로 공개했다. 이 교재는 그 강의를 듣고 한국어로 새로 쓴 독학 정리이며, 스탠퍼드의 공식 자료가 아니다.</li>
 </ul>
+
 <footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
 강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
 </main>
@@ -68,5 +69,6 @@ document.querySelectorAll('.math').forEach(el => {
 });
 </script>
 <script src="assets/figures.js"></script>
+<script>FigKit.renderAll();</script>
 </body>
 </html>

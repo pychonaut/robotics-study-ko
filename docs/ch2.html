@@ -9,9 +9,11 @@
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<header class="top"><a href="./">처음</a><a href="ch1.html">1장</a><a href="ch2.html">2장</a></header>
+<header class="top"><a href="./">처음</a><a href="ch1.html">← 이전 장</a></header>
 <main>
 <h1>2장. 위치와 방향을 숫자로 적기</h1>
+<!-- card: 강의 2강 · 자유도, 회전행렬, 동차변환 · 연습문제와 파이썬 확인 코드 -->
+
 <p class="lead">물체가 어디에 어느 방향으로 있는지는 회전행렬과 원점 위치로 적는다. 이 장은 평면(2차원)에서 먼저 익히고 3차원으로 넓힌다. 강의 2강(68분)에 해당한다.</p>
 
 <h2>2.1 관절과 자유도</h2>
@@ -425,7 +427,7 @@ print(np.allclose(R.T @ R, np.eye(3)))      # True
 <h3>스탠퍼드 숙제</h3>
 <p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 1에서 1번(회전 두 번 겹치기)과 3번(동차변환의 역)은 이 장으로 풀 수 있다. 2번과 4번은 3강을 배운 뒤에 푼다. 풀이는 같은 페이지의 Solution 1에 있다.</p>
 <p>다 풀었으면 <a href="https://youtu.be/QKyDrUonp98">2강 영상</a>을 한 번 본다.</p>
-<div class="chapter-nav"><a href="ch1.html">← 1장</a><a href="./">처음으로 →</a></div>
+<div class="chapter-nav"><a href="ch1.html">← 1장. 로봇 팔은 무엇을 풀어야 하나</a><a href="./">처음으로 →</a></div>
 <footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
 강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
 </main>
@@ -437,5 +439,6 @@ document.querySelectorAll('.math').forEach(el => {
 });
 </script>
 <script src="assets/figures.js"></script>
+<script>FigKit.renderAll();</script>
 </body>
 </html>

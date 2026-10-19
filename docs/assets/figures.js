@@ -474,8 +474,16 @@
     ].join(''), '같은 행렬을 두 가지로 읽는다');
   };
 
-  document.querySelectorAll('figure[data-fig]').forEach(el => {
-    const f = FIG[el.dataset.fig];
-    if (f) f(el.querySelector('.fig-body'));
-  });
+  // 장별 그림 파일(assets/figs/chN.js)이 이 도구를 꺼내 쓴다.
+  window.FIG = Object.assign(window.FIG || {}, FIG);
+  window.FigKit = {
+    D, f1, f2, defs, svg, T, L, A, AA, C, joint, link, arc, annulus, interactive, sub, matrix2,
+    renderAll() {
+      document.querySelectorAll('figure[data-fig]').forEach(el => {
+        const f = window.FIG[el.dataset.fig], body = el.querySelector('.fig-body');
+        if (!f) { body.textContent = '그림을 찾을 수 없음: ' + el.dataset.fig; return; }
+        try { f(body); } catch (e) { body.textContent = '그림 오류: ' + e.message; console.error(e); }
+      });
+    },
+  };
 })();
