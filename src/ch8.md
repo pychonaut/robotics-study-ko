@@ -265,7 +265,7 @@ J<sub>W</sub>가 {0}의 숫자라면 p̂도 {0}의 숫자여야 한다. 가장 �
 \dot\theta = J(\theta)^{-1}\,\dot x_d
 ```
 
-이 방법을 **resolved-rate 제어**(resolved motion rate control)라 한다. 1970년 무렵 Daniel Whitney가 내놓았다. 동역학도 접촉 힘도 생각하지 않는 아주 단순한 방법이다.
+이 방법을 **resolved-rate 제어**(resolved motion rate control)라 한다. 1972년 Daniel Whitney가 논문으로 내놓았다. 동역학도 접촉 힘도 생각하지 않는 아주 단순한 방법이다.
 
 ### 시간 간격 Δt로 걷기
 

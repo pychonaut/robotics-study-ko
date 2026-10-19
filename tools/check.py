@@ -34,7 +34,7 @@ def main() -> None:
         msg = re.search(r"(그림 오류[^<]*|그림을 찾을 수 없음[^<]*)", inner)
         print(f"  {fid}: {'OK' if ok else '문제 ' + (msg.group(1) if msg else '(svg 없음)')}")
     print(f"그림 {len(figures)}개, 문제 {bad}개")
-    katex_err = dom.count('class="katex-error"') + dom.count('color:#cc0000')
+    katex_err = dom.count('class="katex-error"') + dom.lower().count('cc0000') + dom.count('rgb(204, 0, 0)')
     print("수식 오류:", katex_err)
     out = Path("/tmp/robotics-shots") / name
     out.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14장. 이득 고르기와 모델로 돕기: 임계 감쇠, 제어 분할, PID</title>
+<meta name="description" content="스탠퍼드 CS223A 로봇공학 입문을 그림과 직접 움직여 보는 그림으로 혼자 공부하는 한국어 정리">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="top"><a href="./">처음</a><a href="ch13.html">← 이전 장</a><a href="ch15.html">다음 장 →</a></header>
+<main>
+<h1>14장. 이득 고르기와 모델로 돕기: 임계 감쇠, 제어 분할, PID</h1>
+<!-- card: 강의 14강 · 고유 진동수와 감쇠비로 PD 이득 고르기, 제어 분할, 궤적 따라가기, 정상 상태 오차와 PID, 기어비와 유효 관성 · 연습문제와 파이썬 확인 코드 -->
+
+<p class="lead">PD 제어의 두 이득은 닫힌 루프가 얼마나 빨리, 얼마나 출렁이며 목표에 가는지를 정한다. 이 장은 이득을 고르는 법, 모델로 질량과 중력을 덜어 내는 제어 분할, 궤적 따라가기, 외란이 남기는 오차와 적분 항, 기어가 만드는 유효 관성을 차례로 익힌다. 강의 14강(73분)에 해당한다.</p>
+
+<h2>14.1 13장에서 이어서: PD는 가상의 용수철과 댐퍼</h2>
+<p>강의는 촉각 센서 영상으로 시작한다. 손끝 모양의 투명한 몸통에 빛을 가두고, 고무 덮개가 눌린 자리에서 새어 나온 빛을 카메라로 찍어 닿은 곳을 읽는다. 압력 센서를 촘촘히 깔고 선을 하나하나 뽑는 대신, 영상 하나로 보내는 생각이다.</p>
+<p>13장에서는 질량–용수철–댐퍼 m ẍ + b ẋ + k x = 0의 움직임이 두 숫자로 정해지는 것을 보았다. 고유 진동수 ω<sub>n</sub> = √(k/m)와 감쇠비 ζ = b / (2√(km))다. 모터 힘을 위치 에너지의 기울기(용수철)로 만들면 안정하고, 속도에 맞서는 힘(댐퍼)을 더하면 목표에 멈춘다는 것도 보았다.</p>
+<p>이 둘을 합친 것이 PD 제어였다. 이 장은 그 PD의 이득을 어떻게 고르고, 모델로 어떻게 도울지를 다룬다.</p>
+<h3>이 장의 예: 레일 위 블록</h3>
+<p>받침 위 레일을 미끄러지는 블록 하나를 생각한다. 직동 관절 하나짜리 로봇이다.</p>
+<p>질량 m = 2 kg이고, 모터가 레일 방향으로 힘 F를 낸다. 운동 방정식은 m ẍ = F 하나다.</p>
+<p>목표 위치 x<sub>d</sub>로 보내는 PD 제어는 다음과 같다. k<sub>p</sub>를 <strong>위치 이득</strong>(position gain), k<sub>v</sub>를 <strong>속도 이득</strong>(velocity gain)이라 한다.</p>
+<div class="math" data-tex="F = -k_p\,(x - x_d) - k_v\,\dot x"></div>
+<p>이 F를 운동 방정식에 넣고 왼쪽으로 옮긴다.</p>
+<div class="math" data-tex="m\,\ddot x + k_v\,\dot x + k_p\,(x - x_d) = 0"></div>
+<p>13장의 질량–용수철–댐퍼와 같은 꼴이다. 다른 점은 용수철이 늘어나지 않은 자리가 0이 아니라 x<sub>d</sub>라는 것뿐이다.</p>
+<figure data-fig="fig14_1"><div class="fig-title">모터 힘 하나가 용수철과 댐퍼 노릇을 한다</div><div class="fig-body"></div><div class="fig-note">용수철은 목표 x<sub>d</sub>에, 댐퍼는 받침에 붙어 있다. 그래서 블록은 x<sub>d</sub>에 와서 멈춘다.</div><figcaption>그림 14-1 · PD 제어는 가상의 용수철과 댐퍼</figcaption></figure>
+<p>실제로 용수철은 없다. 센서로 x와 ẋ를 재고, 컴퓨터가 F를 계산하고, 모터가 그 힘을 낸다. 이 고리를 <strong>닫힌 루프</strong>(closed loop)라 한다.</p>
+<p>13장의 자연계에서는 k와 b가 정해져 있었지만, 이제는 k<sub>p</sub>와 k<sub>v</sub>를 우리가 고른다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> k<sub>p</sub>를 음수로 넣으면 블록은 어떻게 될까?</p>
+</blockquote>
+<p>용수철이 거꾸로 밀어낸다. 목표에서 조금만 벗어나도 더 멀리 밀려나서 점점 빨라진다.</p>
+<p>강의의 PUMA 시뮬레이터에서 이득을 −20으로 넣자 팔이 멈추지 않고 돌아간다. 이득은 양수여야 한다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=11">00:11 촉각 센서 영상</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=416">06:56 질량 하나를 PD로</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=448">07:28 닫힌 루프의 모양</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=1015">16:55 음수 이득은 불안정</a></p>
+<h2>14.2 닫힌 루프의 고유 진동수와 감쇠비</h2>
+<p>닫힌 루프 식을 m으로 나눈다.</p>
+<div class="math" data-tex="\ddot x + \frac{k_v}{m}\,\dot x + \frac{k_p}{m}\,(x - x_d) = 0"></div>
+<p>13장의 표준형과 나란히 놓고 칸끼리 맞춘다.</p>
+<div class="math" data-tex="\ddot x + 2\zeta\omega_n\,\dot x + \omega_n^2\,(x - x_d) = 0"></div>
+<p>그러면 두 숫자가 나온다. <strong>닫힌 루프 고유 진동수</strong>(closed-loop natural frequency)와 <strong>닫힌 루프 감쇠비</strong>(closed-loop damping ratio)다.</p>
+<div class="math" data-tex="\omega_n = \sqrt{\frac{k_p}{m}},\qquad \zeta = \frac{k_v}{2\sqrt{m\,k_p}}"></div>
+<p>13장의 공식에서 k를 k<sub>p</sub>로, b를 k<sub>v</sub>로 바꾼 것이다. k<sub>p</sub>는 ω<sub>n</sub>과 ζ 둘 다에 들어 있고, k<sub>v</sub>는 ζ에만 들어 있다.</p>
+<h3>숫자로 해 보기</h3>
+<p>블록(m = 2 kg)에 k<sub>p</sub> = 200 N/m, k<sub>v</sub> = 16 N·s/m을 준다.</p>
+<ul>
+<li>ω<sub>n</sub> = √(200/2) = 10 rad/s. 진동수로는 ω<sub>n</sub>/2π ≈ 1.6 Hz, 1초에 1.6번 흔들리는 빠르기다.</li>
+<li>ζ = 16 / (2√(2 × 200)) = 16/40 = 0.4. 1보다 작아서 출렁인다.</li>
+</ul>
+<p>목표가 0초에 0에서 10 cm로 한 번에 뛰었을 때 x가 따라가는 모양을 <strong>계단 응답</strong>(step response)이라 한다. 얼마나 넘치는지, 언제 가라앉는지를 보면 이득이 좋은지 알 수 있다.</p>
+<blockquote>
+<p><strong>수학 더하기: 넘침은 얼마나 되나.</strong> ζ &lt; 1이면 응답은 출렁이는 cos 모양에, 시간이 지나며 줄어드는 껍질 e<sup>−ζω<sub>n</sub>t</sup>를 곱한 꼴이다. 출렁임의 빠르기는 ω<sub>d</sub> = ω<sub>n</sub>√(1 − ζ²)이고, 첫 봉우리는 반 주기 t<sub>p</sub> = π/ω<sub>d</sub>에 온다. <strong>넘침</strong>(overshoot)은 그때의 껍질 크기라서 아래 식이 된다.</p>
+</blockquote>
+<div class="math" data-tex="M_p = e^{-\zeta\omega_n t_p} = e^{-\pi\zeta/\sqrt{1-\zeta^2}}"></div>
+<p>ζ = 0.4이면 √(1 − 0.16) = 0.917이라 M<sub>p</sub> = e<sup>−1.37</sup> = 0.25다. 목표 10 cm를 25% 넘어 12.5 cm까지 갔다가 돌아온다. 봉우리 시각은 t<sub>p</sub> = π / 9.17 = 0.34초다.</p>
+<p>목표의 2% 안에 들어와서 다시 나가지 않는 시각을 <strong>정착 시간</strong>(settling time)이라 한다. 어림은 4/(ζω<sub>n</sub>)이고, 이 예에서는 1초다. 실제로 계산하면 0.84초다.</p>
+<figure data-fig="fig14_2"><div class="fig-title">k<sub>p</sub>는 빠르기를, k<sub>v</sub>는 출렁임을 정한다</div><div class="fig-body"></div><div class="fig-note">목표가 0초에 0에서 10 cm로 뛴다. 회색 점선은 같은 k<sub>p</sub>에서 ζ = 1이 되도록 k<sub>v</sub>를 고른 응답이다. 주황 점은 첫 봉우리, 세로 점선은 정착 시간이다.</div><figcaption>그림 14-2 · 직접 바꿔 보기: 블록(2 kg)의 계단 응답</figcaption></figure>
+<p>해 볼 것 네 가지:</p>
+<ol>
+<li>k<sub>v</sub> = 0: ζ = 0이다. 20 cm까지 넘쳤다가 0으로 돌아오기를 끝없이 되풀이한다.</li>
+<li>k<sub>v</sub> = 40: ζ = 1이다. 넘치지 않고 0.58초에 2% 안에 든다.</li>
+<li>k<sub>v</sub> = 80: ζ = 2다. 넘치지는 않지만 1.49초로 오래 걸린다.</li>
+<li>k<sub>v</sub> = 40으로 두고 k<sub>p</sub>를 800으로 올린다. ω<sub>n</sub> = 20 rad/s로 두 배 빨라지지만 ζ는 0.5로 떨어져 다시 출렁인다.</li>
+</ol>
+<p>4번처럼 k<sub>p</sub>만 바꿔도 감쇠비가 따라 바뀐다. 그래서 이득은 하나씩 따로 고르지 않고, ω<sub>n</sub>과 ζ를 먼저 정한 다음 거꾸로 구한다. 다음 절의 방법이다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=513">08:33 m으로 나누어 보기</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=575">09:35 2ζω와 ω²</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=607">10:07 이제는 이득이 정하는 진동수와 감쇠비</a></p>
+<h2>14.3 임계 감쇠와 이득 고르기</h2>
+<p>로봇은 대개 ζ = 1을 고른다. 이것을 <strong>임계 감쇠</strong>(critical damping)라 한다. 까닭은 두 가지다.</p>
+<ul>
+<li><strong>넘치면 부딪힌다.</strong> 손끝이 목표를 지나치면 집으려던 컵이나 책상을 친다.</li>
+<li><strong>너무 감쇠하면 느리다.</strong> ζ &gt; 1이면 넘치지는 않지만 목표에 슬금슬금 다가간다.</li>
+</ul>
+<p>ζ = 1은 넘치지 않는 응답 가운데 가장 빠르다. 조건은 ζ = 1을 풀면 나온다.</p>
+<div class="math" data-tex="k_v = 2\sqrt{m\,k_p}"></div>
+<p>블록이면 k<sub>v</sub> = 2√(2 × 200) = 40 N·s/m이다. 그림 14-2의 회색 점선이 이것이다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 그림 14-2에서 k<sub>v</sub> = 32(ζ = 0.8)로 하면 0.37초에 2% 안에 든다. ζ = 1의 0.58초보다 빠르다. 그런데 왜 ζ = 1을 고를까?</p>
+</blockquote>
+<p>ζ = 0.8은 1.5% 넘친다. 넘침이 2% 띠 안이라 정착 시간은 짧게 나오지만, 손끝은 목표를 지나친다. 물건에 닿는 일에서는 조금만 지나쳐도 민다.</p>
+<p>게다가 팔의 질량은 자세마다 바뀌어서(14.4절) 실제 ζ는 계산보다 낮아질 수 있다.</p>
+<h3>ω와 ζ를 정하고 이득을 구한다</h3>
+<p>ω<sub>n</sub>과 ζ의 공식을 이득에 대해 풀면 설계 순서가 나온다.</p>
+<div class="math" data-tex="k_p = m\,\omega_n^2,\qquad k_v = 2\,m\,\zeta\,\omega_n"></div>
+<p>ζ는 대개 1로 둔다. 그러면 남은 일은 ω<sub>n</sub> 하나를 고르는 것이다. ω<sub>n</sub> = 10 rad/s, ζ = 1이면 블록의 이득은 k<sub>p</sub> = 200, k<sub>v</sub> = 40이다.</p>
+<h3>ω는 얼마나 높일 수 있나</h3>
+<p>ω<sub>n</sub>을 올리면 응답이 빨라진다. k<sub>p</sub>도 함께 커져서 팔이 단단해진다. 손으로 밀어도 덜 밀리고, 다른 관절이 흔드는 힘에도 덜 흔들린다.</p>
+<p>강의의 PUMA 시뮬레이터가 이것을 보여 준다. 관절 2를 당겼다 놓으면 관절 3이 따라 흔들린다. 이득을 40에서 400, 1600으로 올릴수록 흔들림이 줄고 빨리 제자리로 간다.</p>
+<p>그런데 끝없이 올릴 수는 없다. 기어, 벨트, 링크는 조금씩 휘어서 저마다 흔들리기 좋아하는 <strong>공진 진동수</strong>(resonance frequency)가 있다. 닫힌 루프의 ω<sub>n</sub>이 그 근처에 가면 구조가 떨리기 시작하고 결국 불안정해진다.</p>
+<p>어림 규칙으로 ω<sub>n</sub>은 구조의 가장 낮은 공진 진동수의 절반 아래로 둔다(Craig 교재). 강의의 k<sub>p</sub> = 400(m = 1)은 ω<sub>n</sub> = 20 rad/s, 약 3.2 Hz다. 산업용 팔에서 10 Hz면 아주 잘한 것이다.</p>
+<p>실제로는 낮은 이득에서 시작해 조금씩 올린다. 떨리는 소리가 나기 시작하면 한 단계 내린다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 이득의 한계는 공진만이 아니다. 모터는 낼 수 있는 힘에 끝이 있어서, 큰 오차에 큰 k<sub>p</sub>를 곱하면 힘이 모자라 포화된다. 속도는 보통 엔코더 각도를 미분해 얻기 때문에 잡음이 많고, k<sub>v</sub>가 그 잡음을 그대로 키워 모터를 떨게 한다.</p>
+</blockquote>
+<p>같은 ω<sub>n</sub> = 10 rad/s, ζ = 1을 원해도 m = 1 kg인 링크는 k<sub>p</sub> = 100 N/m, m = 100 kg인 링크는 10,000 N/m가 든다(k<sub>p</sub> = mω<sub>n</sub>²). 같은 움직임을 원해도 이득은 질량에 비례한다. 질량이 바뀌는 팔에서는 이득도 따라 바꿔야 하는데, 이것이 다음 절의 주제다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=703">11:43 목표는 임계 감쇠</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=1081">18:01 PUMA: 관절 사이의 얽힘</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=1408">23:28 구조의 떨림이 한계</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=1541">25:41 ω와 ζ로 이득 구하기</a></p>
+<h2>14.4 제어 분할: 단위 질량으로 설계하고 질량을 곱한다</h2>
+<h3>문제: 팔의 질량은 바뀐다</h3>
+<p>12장에서 종이 팔 어깨의 관성 M₁₁ = 2487 + 1200 cos θ₂ g·cm²를 구했다. 편 팔(θ₂ = 0°)에서 3687, 150° 접은 팔에서 1448로 2.5배 차이가 난다. 이득을 고정해 두면 ω<sub>n</sub> ∝ 1/√m, ζ ∝ 1/√m라 자세마다 응답이 달라진다.</p>
+<h3>단위 질량 시스템</h3>
+<p>먼저 질량이 1인 가상의 시스템 ẍ = F′을 생각한다. 이것을 <strong>단위 질량 시스템</strong>(unit-mass system)이라 하고, 이 시스템의 것에는 프라임(′)을 붙인다. 이 시스템의 PD 이득은 질량이 1이라 아주 간단하다.</p>
+<div class="math" data-tex="F&#x27; = -k_p&#x27;\,(x - x_d) - k_v&#x27;\,\dot x"></div>
+<div class="math" data-tex="k_p&#x27; = \omega_n^2,\qquad k_v&#x27; = 2\zeta\omega_n"></div>
+<p>실제 블록에는 F = m F′을 준다. 그러면 m ẍ = m F′, 곧 ẍ = F′이 되어 블록이 단위 질량 시스템처럼 움직인다. 실제 이득은 k<sub>p</sub> = m k<sub>p</sub>′, k<sub>v</sub> = m k<sub>v</sub>′다.</p>
+<p>ω<sub>n</sub> = 10, ζ = 1이면 k<sub>p</sub>′ = 100, k<sub>v</sub>′ = 20이다. 블록이 2 kg이면 200과 40, 6 kg이면 600과 120이다. 질량을 알면 곱하는 숫자만 바꾸면 되고, 응답은 그대로다.</p>
+<h3>비선형 항까지: F = αF′ + β</h3>
+<p>실제 시스템에는 질량 말고도 힘이 더 있다. 레일의 마찰, 세워 든 팔의 중력, 여러 관절이면 원심력과 코리올리 힘이다. 이것을 묶어 b(x, ẋ)라 쓴다.</p>
+<div class="math" data-tex="m\,\ddot x + b(x, \dot x) = F"></div>
+<p>마찰이 속도의 방향만 따르거나(<strong>쿨롱 마찰</strong>, Coulomb friction) 중력이 cos θ를 따르면 b는 비선형이다. 이득 하나로는 흡수할 수 없다. 대신 모델로 b를 계산해 미리 빼 준다.</p>
+<div class="math" data-tex="F = \alpha\,F&#x27; + \beta,\qquad \alpha = \hat m,\qquad \beta = \hat b(x, \dot x)"></div>
+<p>모자(ˆ)는 모델로 추정한 값이라는 뜻이다. 추정이 맞으면 m ẍ + b = m F′ + b라서 ẍ = F′만 남는다. 모델이 맡는 몫(α, β)과 되먹임이 맡는 몫(F′)으로 나누어서 이것을 <strong>제어 분할</strong>(control partitioning)이라 한다.</p>
+<figure data-fig="fig14_3"><div class="fig-title">모델이 질량과 비선형 항을 덜어 내면 단위 질량이 남는다</div><div class="fig-body"></div><div class="fig-note">위쪽 길: 단위 질량용 제어 F′에 추정 질량을 곱한다. 아래쪽 길: 측정한 x, ẋ로 비선형 항 b를 모델로 계산해 더한다.</div><figcaption>그림 14-3 · 제어 분할의 흐름</figcaption></figure>
+<h3>예: 세워 든 링크</h3>
+<p>11장의 세워 든 링크(10 cm, 100 g)는 I₀θ̈ + m g l<sub>c</sub> cos θ = τ였다. 질량 자리는 I₀ = 3.33 × 10⁻⁴ kg·m², 비선형 항은 중력 0.049 cos θ N·m다. 제어 분할은 이렇게 된다.</p>
+<div class="math" data-tex="\tau = I_0\,\tau&#x27; + 0.049\cos\theta"></div>
+<div class="math" data-tex="\tau&#x27; = -k_p&#x27;\,(\theta - \theta_d) - k_v&#x27;\,\dot\theta"></div>
+<p>β가 중력을 정확히 받쳐 주면 링크는 무게가 없는 것처럼 움직인다. β를 빼면 어떻게 되는지는 14.6절에서 본다.</p>
+<figure data-fig="fig14_4"><div class="fig-title">이득을 질량에 맞춰 키우면 응답이 그대로다</div><div class="fig-body"></div><div class="fig-note">목표 10 cm로 가는 계단 응답이다. 주황은 2 kg에 맞춘 고정 이득, 파랑은 k<sub>p</sub>′ = 100, k<sub>v</sub>′ = 20에 추정 질량을 곱한 제어 분할이다.</div><figcaption>그림 14-4 · 직접 바꿔 보기: 질량이 바뀌는 블록</figcaption></figure>
+<p>해 볼 것 세 가지:</p>
+<ol>
+<li>m = 8 kg: 고정 이득은 ω = 5 rad/s, ζ = 0.5라 16% 넘치고 느리다. 제어 분할은 회색 기준 곡선과 겹친다.</li>
+<li>m = 0.5 kg: 고정 이득은 ω = 20 rad/s로 빠른데도 ζ = 2라서 목표에 더디게 다가간다.</li>
+<li>추정 질량 ÷ 실제 질량 = 0.7: 질량을 30% 작게 알아도 ω = 8.4 rad/s, ζ = 0.84로 응답이 크게 무너지지 않는다.</li>
+</ol>
+<blockquote>
+<p><strong>알아 두기.</strong> 관절이 여러 개면 α는 질량 행렬 M(q), β는 원심력·코리올리 힘과 중력 V + G가 된다(12장). τ = M(q)τ′ + V + G로 관절 사이의 얽힘까지 풀면 관절마다 단위 질량처럼 다룰 수 있다. 15장에서 다룬다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=1795">29:55 단위 질량의 이득</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=1951">32:31 제어 분할</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=2293">38:13 αF′ + β로 비선형 항 빼기</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=2515">41:55 블록 그림으로 보기</a></p>
+<h2>14.5 궤적 따라가기: 가속도를 앞먹임하고 오차에 PD</h2>
+<p>지금까지는 정해진 한 점으로 가는 제어였다. 그런데 10장에서 만든 궤적은 시각마다 목표 위치 x<sub>d</sub>(t), 속도 ẋ<sub>d</sub>(t), 가속도 ẍ<sub>d</sub>(t)가 있다. 점으로 가는 PD를 그대로 쓰면 −k<sub>v</sub>′ẋ 항이 움직이는 중에도 속도를 0으로 끌어당긴다.</p>
+<h3>첫 생각: 가속도를 그대로 넣는다</h3>
+<p>제어 분할 덕분에 시스템은 ẍ = F′이다. 그러면 F′ = ẍ<sub>d</sub>로 두면 블록이 원하는 가속도로 움직일 것이다. 측정 없이 미리 계산해 넣는 이런 몫을 <strong>앞먹임</strong>(feedforward)이라 한다.</p>
+<p>하지만 앞먹임만으로는 안 된다. 질량 추정이 조금 틀리거나 출발 위치가 어긋나면 오차가 생기고, 아무도 고치지 않아 쌓여 간다.</p>
+<h3>오차에 PD를 더한다</h3>
+<p>위치 오차와 속도 오차에 PD를 걸어 앞먹임에 더한다.</p>
+<div class="math" data-tex="F&#x27; = \ddot x_d - k_v&#x27;\,(\dot x - \dot x_d) - k_p&#x27;\,(x - x_d)"></div>
+<p>오차를 e = x − x<sub>d</sub>라 하면 닫힌 루프는 오차의 식이 된다.</p>
+<div class="math" data-tex="\ddot e + k_v&#x27;\,\dot e + k_p&#x27;\,e = 0"></div>
+<blockquote>
+<p><strong>수학 더하기: 오차로 옮겨 적기.</strong> e = x − x<sub>d</sub>를 시간으로 미분하면 ė = ẋ − ẋ<sub>d</sub>, ë = ẍ − ẍ<sub>d</sub>다. ẍ = F′에 위의 F′을 넣고 ẍ<sub>d</sub>를 왼쪽으로 옮기면 ẍ − ẍ<sub>d</sub> = ë가 된다. 나머지 두 괄호는 ė와 e다.</p>
+</blockquote>
+<p>오차가 14.2절의 계단 응답과 같은 2차 식을 따라 0으로 간다. 그래서 k<sub>p</sub>′ = ω<sub>n</sub>², k<sub>v</sub>′ = 2ω<sub>n</sub>(ζ = 1)으로 고르면 오차가 넘치지 않고 줄어든다.</p>
+<h3>숫자로 해 보기</h3>
+<p>블록을 1초 동안 0에서 10 cm로 보낸다. 궤적은 10장의 3차 다항식 x<sub>d</sub>(t) = 10(3t² − 2t³) cm이고, 1초 뒤에는 멈춘다. 블록 질량을 20% 작게 잘못 알고 있다고 하자(추정 질량 = 0.8 × 실제 질량).</p>
+<figure data-fig="fig14_5"><div class="fig-title">가속도를 미리 넣고 오차만 PD로 잡는다</div><div class="fig-body"></div><div class="fig-note">검은 점선이 목표 궤적이다. 세 곡선은 같은 블록에 세 가지 F′을 준 결과다.</div><figcaption>그림 14-5 · 직접 바꿔 보기: 1초 동안 10 cm 가는 궤적 따라가기</figcaption></figure>
+<p>기본값(ω = 10 rad/s, 추정 ÷ 실제 = 0.8)에서 읽을 것:</p>
+<ol>
+<li><strong>앞먹임만</strong>(회색): 8 cm에서 멈춘다. 질량을 작게 알아 힘이 20% 모자랐는데, 되먹임이 없어 아무도 고치지 않는다.</li>
+<li><strong>PD만</strong>(주황): 목표를 뒤쫓아 가장 큰 오차가 2.9 cm다. ω를 30으로 올려도 1 cm 가까이 남는다.</li>
+<li><strong>앞먹임 + PD</strong>(파랑): 가장 큰 오차가 0.1 cm다. 앞먹임이 힘의 80%를 미리 대고, PD는 남은 20%만 고친다.</li>
+</ol>
+<p>추정 ÷ 실제를 1로 맞추면 앞먹임만으로도 궤적에 붙는다. 하지만 실제 모델은 늘 조금씩 틀리므로 둘을 함께 쓴다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> PD만 쓰면 왜 목표를 뒤쫓을 수밖에 없을까?</p>
+</blockquote>
+<p>PD만이면 힘이 오차에서만 나온다. 블록을 가속하려면 힘이 필요하고, 그 힘을 만들려면 오차가 먼저 생겨야 한다. 앞먹임은 필요한 힘을 미리 넣어서 오차가 생길 까닭을 없앤다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=2677">44:37 목표 위치로 가는 F′</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=2739">45:39 궤적을 따라가려면</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=2968">49:28 앞먹임만 하면 어긋난다</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3065">51:05 오차의 2차 식</a></p>
+<h2>14.6 외란과 정상 상태 오차</h2>
+<p>모델은 늘 조금씩 틀린다. 질량과 중력 추정의 오차, 기어의 마찰, 사람이 미는 손이 있다. 모델에 없는 힘을 모두 묶어 <strong>외란</strong>(disturbance) F<sub>d</sub>라 한다.</p>
+<div class="math" data-tex="m\,\ddot x + b(x, \dot x) = F + F_d"></div>
+<p>F = m F′ + b로 나머지는 정확히 뺐다고 하자. 그러면 오차의 식에 외란이 남는다.</p>
+<div class="math" data-tex="\ddot e + k_v&#x27;\,\dot e + k_p&#x27;\,e = \frac{F_d}{m}"></div>
+<p>외란은 실제 시스템에 들어오는 힘이라서, 단위 질량 쪽으로 옮기면 m으로 나뉜다.</p>
+<h3>다 가라앉은 뒤의 오차</h3>
+<p>F<sub>d</sub>가 일정하면 결국 움직임이 멈춘다(ë = ė = 0). 그때 남는 오차를 <strong>정상 상태 오차</strong>(steady-state error)라 한다.</p>
+<div class="math" data-tex="e_{ss} = \frac{F_d}{m\,k_p&#x27;} = \frac{F_d}{k_p}"></div>
+<p>용수철에 추를 매달면 무게 ÷ 용수철 상수만큼 늘어나는 것과 같다. 블록(m = 2 kg, k<sub>p</sub>′ = 100)이면 k<sub>p</sub> = 200 N/m다. 2 N으로 밀면 2 / 200 = 0.01 m, 1 cm 밀린 채로 멈춘다.</p>
+<h3>단단함은 k<sub>p</sub>′가 아니라 m k<sub>p</sub>′</h3>
+<p>닫힌 루프의 <strong>단단함</strong>(closed-loop stiffness)은 1 m 밀렸을 때 되미는 힘, 곧 k<sub>p</sub> = m k<sub>p</sub>′다. 제어 분할로 ω<sub>n</sub>은 일정하게 지켰지만 단단함은 질량을 따라 바뀐다.</p>
+<p>종이 팔이라면 접은 팔(M₁₁ = 1448)이 편 팔(3687)보다 2.5배 무르다. 같은 힘으로 밀어도 접은 자세에서 2.5배 더 밀린다. 그래서 k<sub>p</sub>′는 가장 가벼운 자세에서도 오차가 허용 범위에 들도록 크게 잡는다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 강의는 어떤 교재가 외란을 m으로 나누지 않고 단위 질량 시스템에 바로 더해 쓴다고 짚는다. 그렇게 쓰면 오차가 k<sub>p</sub>′에 반비례하는 것처럼 보인다. 외란은 실제 힘이므로, 오차는 k<sub>p</sub>′가 아니라 m k<sub>p</sub>′에 반비례한다.</p>
+</blockquote>
+<h3>중력이 외란일 때: 세워 든 링크</h3>
+<p>세워 든 링크에서 β(중력 보상)를 빼고 τ = I₀τ′만 준다. 그러면 중력이 모델에 없는 외란이 된다. 링크는 PD의 용수철 토크가 중력 토크와 맞서는 자리에서 멈춘다.</p>
+<div class="math" data-tex="k_p\,(\theta_d - \theta) = m g\,l_c \cos\theta"></div>
+<p>처짐이 작으면 오른쪽의 θ를 θ<sub>d</sub>로 바꿔 θ<sub>d</sub> − θ ≈ G(θ<sub>d</sub>) / k<sub>p</sub>로 어림한다. ω = 20 rad/s이면 k<sub>p</sub> = I₀ω² = 0.133 N·m/rad다.</p>
+<p>수평(θ<sub>d</sub> = 0°)을 지키려 하면 0.049 / 0.133 = 0.37 rad, 약 21° 처진다고 어림된다. 실제로 풀면 19.8°다. 링크가 처지면 cos θ가 조금 줄어서 어림보다 덜 처진다.</p>
+<figure data-fig="fig14_6"><div class="fig-title">중력을 모델로 빼 주지 않으면 링크가 처진다</div><div class="fig-body"></div><div class="fig-note">링크는 아래로 늘어진 자세(−90°)에서 출발한다. 가는 점선은 수평(0°)과 수직(90°), 주황 호와 숫자는 처짐이다. 오른쪽은 각도 θ(t)이고, 이득은 I₀에 맞춰 ζ = 1이 되게 골랐다.</div><figcaption>그림 14-6 · 직접 바꿔 보기: 세워 든 링크(10 cm, 100 g)를 PD로 들기</figcaption></figure>
+<p>해 볼 것 네 가지:</p>
+<ol>
+<li>기본값(θ<sub>d</sub> = 30°, ω = 20 rad/s, 보상 끔): 9.2°에서 멈춰 20.8° 처진다.</li>
+<li>ω를 60으로 올린다. k<sub>p</sub>가 9배라 처짐은 2.1°로 준다. 그래도 0은 아니다.</li>
+<li>θ<sub>d</sub> = 90°: 곧게 서면 중력 토크가 0이라 처짐도 0이다.</li>
+<li>중력 보상을 켠다(1). 어느 각도, 어느 ω에서도 처짐이 0이다.</li>
+</ol>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 보상 없이 θ<sub>d</sub> = 90°로 세우면 처짐이 없다. 그러면 ω를 아무리 낮춰도 될까?</p>
+</blockquote>
+<p>아니다. 곧게 선 링크는 조금만 기울어도 중력이 더 기울이는 쪽으로 민다. k<sub>p</sub>가 m g l<sub>c</sub> = 0.049 N·m/rad보다 작으면 이 힘을 이기지 못한다. ω로는 √(0.049/I₀) = 12.1 rad/s 아래다.</p>
+<p>그림에서 ω = 10으로 해 보면 링크가 6°까지만 올라온다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=3129">52:09 외란을 넣고 다시 보기</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3254">54:14 중력 추정의 오차</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3384">56:24 정상 상태 오차</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3448">57:28 단단함은 m k<sub>p</sub>′</a></p>
+<h2>14.7 PID: 적분 항이 남은 오차를 지운다</h2>
+<p>PD는 F<sub>d</sub> / k<sub>p</sub>만큼 오차를 남긴다. k<sub>p</sub>를 올리면 줄지만 14.3절의 한계가 있다. 다른 길은 오차를 시간에 걸쳐 쌓는 <strong>적분 항</strong>(integral term)을 더하는 것이다.</p>
+<div class="math" data-tex="F&#x27; = \ddot x_d - k_v&#x27;\,\dot e - k_p&#x27;\,e - k_i&#x27; \int_0^t e\,dt"></div>
+<p>비례(P), 적분(I), 미분(D) 세 몫이라 <strong>PID 제어</strong>라 한다. k<sub>i</sub>′는 <strong>적분 이득</strong>(integral gain)이다.</p>
+<blockquote>
+<p><strong>수학 더하기: 적분은 쌓인 넓이.</strong> ∫₀ᵗ e dt는 0초부터 지금까지 e(t) 그래프 아래의 넓이다. e가 1 cm로 0.5초 이어지면 0.5 cm·s가 쌓인다. 오차가 남아 있는 한 넓이는 계속 커지고, 오차가 0이 되어야 커지기를 멈춘다.</p>
+</blockquote>
+<h3>왜 오차가 0이 되나</h3>
+<p>닫힌 루프 식에 적분이 하나 더 붙는다.</p>
+<div class="math" data-tex="\ddot e + k_v&#x27;\,\dot e + k_p&#x27;\,e + k_i&#x27; \int_0^t e\,dt = \frac{F_d}{m}"></div>
+<p>양변을 시간으로 한 번 미분한다. 적분을 미분하면 원래의 e로 돌아오고, F<sub>d</sub>가 일정하면 오른쪽은 0이 된다.</p>
+<div class="math" data-tex="\frac{d^3 e}{dt^3} + k_v&#x27;\,\ddot e + k_p&#x27;\,\dot e + k_i&#x27;\,e = 0"></div>
+<p>다 가라앉으면 e의 미분은 모두 0이라 k<sub>i</sub>′e = 0, 곧 e = 0이다. 외란을 받치는 힘은 적분 항이 쌓아 둔 값이 댄다.</p>
+<figure data-fig="fig14_7"><div class="fig-title">적분 항은 남은 오차가 0이 될 때까지 힘을 쌓는다</div><div class="fig-body"></div><div class="fig-note">블록(2 kg)이 x<sub>d</sub> = 0을 지키다가 0.5초부터 일정한 힘 F<sub>d</sub>를 받는다. 이득은 k<sub>p</sub>′ = 100, k<sub>v</sub>′ = 20(ω<sub>n</sub> = 10 rad/s, ζ = 1)이다.</div><figcaption>그림 14-7 · 직접 바꿔 보기: 일정한 외란과 적분 이득</figcaption></figure>
+<p>해 볼 것 네 가지:</p>
+<ol>
+<li>k<sub>i</sub>′ = 0: 1 cm 밀린 채 멈춘다. 14.6절의 F<sub>d</sub> / k<sub>p</sub> = 2/200 m다.</li>
+<li>k<sub>i</sub>′ = 300: 0.71 cm까지 밀렸다가 2초 무렵에는 거의 0으로 돌아온다.</li>
+<li>k<sub>i</sub>′ = 1000: 0.55 cm로 덜 밀리지만 출렁이며 돌아온다.</li>
+<li>k<sub>i</sub>′를 2000 넘게 올린다. 출렁임이 줄지 않고 커진다.</li>
+</ol>
+<p>4번의 경계는 3차 식이 안정할 조건에서 나온다. 아래 꼴의 식은 a, b, c가 모두 양수이고 ab &gt; c일 때 오차가 0으로 간다(증명은 제어 과목에서 배운다).</p>
+<div class="math" data-tex="\frac{d^3 e}{dt^3} + a\,\ddot e + b\,\dot e + c\,e = 0"></div>
+<p>여기서는 a = k<sub>v</sub>′ = 20, b = k<sub>p</sub>′ = 100, c = k<sub>i</sub>′라서 k<sub>i</sub>′ &lt; 2000이어야 한다.</p>
+<h3>적분 누적을 조심한다</h3>
+<p>적분 항에는 함정이 있다. 크게 빨리 움직이는 동안이나 모터가 포화된 동안에도 오차가 쌓인다.</p>
+<p>목표에 닿을 즈음에는 적분 값이 너무 커져 있어서, 그것을 다 풀어낼 때까지 목표를 지나친다. 이것을 <strong>적분 누적</strong>(integral windup)이라 한다.</p>
+<p>그래서 적분은 목표 근처에서만 켜거나, 쌓이는 값에 상한을 두거나, 포화된 동안에는 멈춘다. 강의는 운동 제어에서는 적분을 조심해서 쓰고, 힘 제어(16장)에서 쓸모가 크다고 말한다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 14.6절의 세워 든 링크에서 중력 보상 β 대신 적분 항을 쓰면 어떨까?</p>
+</blockquote>
+<p>처짐은 결국 사라진다. 하지만 적분이 쌓이는 동안은 처져 있고, 목표 각이 바뀌면 중력 토크도 바뀌어 다시 쌓아야 한다. 모델로 아는 몫은 β로 바로 빼고, 모델이 놓친 작은 나머지를 적분이 맡는 것이 좋다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=3577">59:37 남은 오차를 없애려면</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3608">1:00:08 적분 항</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3640">1:00:40 적분은 목표 근처에서</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3670">1:01:10 미분해서 보면 e = 0</a></p>
+<h2>14.8 기어비와 유효 관성</h2>
+<p>이제 관절 속을 들여다본다. 모터는 링크를 직접 돌리지 않고, 기어를 거쳐 돌린다.</p>
+<figure data-fig="fig14_8"><div class="fig-title">기어는 빠르기를 토크로 바꾸고 회전자를 η²배 무겁게 보이게 한다</div><div class="fig-body"></div><div class="fig-note">모터에 붙은 작은 기어(반지름 r)가 링크에 붙은 큰 기어(반지름 R)를 돌린다.</div><figcaption>그림 14-8 · 모터, 기어, 링크</figcaption></figure>
+<p><strong>기어비</strong>(gear ratio)는 η = R / r이다. 링크가 한 바퀴 돌 때 모터는 η바퀴 돈다.</p>
+<ul>
+<li>빠르기: θ̇<sub>m</sub> = η θ̇<sub>L</sub>. 모터가 η배 빨리 돈다.</li>
+<li>토크: τ<sub>L</sub> = η τ<sub>m</sub>. 링크에서는 모터 토크의 η배가 나온다. 일률 τθ̇이 기어를 지나도 같기 때문이다(마찰을 무시하면).</li>
+</ul>
+<p>기어를 쓰는 까닭은 작고 가벼운 모터로 큰 토크를 내기 위해서다. η = 1인 <strong>직접 구동</strong>(direct drive)은 큰 토크를 내려면 크고 무거운 모터가 필요하고, 그 무게를 안쪽 관절이 들어야 한다. PUMA의 기어비는 50~150이고, 여러 단을 겹쳐 300에 이르는 로봇도 있다.</p>
+<blockquote>
+<p><strong>잠깐, 생각해 보기.</strong> 모터 회전자의 관성 I<sub>m</sub>은 링크에서 보면 얼마로 보일까? 토크처럼 η배일까?</p>
+</blockquote>
+<p>η²배로, η가 두 번 들어간다. 링크를 θ̈<sub>L</sub>로 가속하면 회전자는 η배인 ηθ̈<sub>L</sub>로 가속해야 하고, 이것이 한 번이다. 회전자를 가속하는 데 든 토크는 기어를 지나 링크에서 η배로 보이고, 이것이 또 한 번이다.</p>
+<h3>식으로 확인하기</h3>
+<p>기어가 회전자에 거는 토크를 τ<sub>c</sub>라 하자. 모터 쪽과 링크 쪽의 운동 방정식은 각각 다음과 같다.</p>
+<div class="math" data-tex="\tau_m - \tau_c = I_m\,\ddot\theta_m,\qquad \eta\,\tau_c = I_L\,\ddot\theta_L"></div>
+<p>θ̈<sub>m</sub> = ηθ̈<sub>L</sub>을 넣고 τ<sub>c</sub>를 지운 다음, 양변에 η를 곱한다.</p>
+<div class="math" data-tex="\eta\,\tau_m = \left(I_L + \eta^2 I_m\right)\ddot\theta_L"></div>
+<p>링크 쪽에서 본 관성 I<sub>eff</sub> = I<sub>L</sub> + η²I<sub>m</sub>을 <strong>유효 관성</strong>(effective inertia)이라 한다. 같은 까닭으로 모터의 마찰도 b<sub>eff</sub> = b<sub>L</sub> + η²b<sub>m</sub>으로 η²배가 된다.</p>
+<h3>숫자로 보기</h3>
+<p>작은 모터의 회전자 관성을 I<sub>m</sub> = 0.5 g·cm²라 하자(예시 값). 회전자 자체는 아주 가볍다. 그런데 η = 100이면 η²I<sub>m</sub> = 10,000 × 0.5 = 5000 g·cm²로, 편 종이 팔 전체의 M₁₁ = 3687보다 크다.</p>
+<p>토크와 빠르기도 계산해 보자. 세워 든 링크를 수평으로 버티는 0.049 N·m를 η = 100으로 내면 모터는 0.00049 N·m면 된다. 대신 링크가 2 rad/s로 돌 때 모터는 200 rad/s(약 1900 rpm)로 돈다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 유효 관성이 크면 위험하다. 팔이 무엇에 부딪히면 링크만이 아니라 η²배로 커 보이는 회전자까지 한꺼번에 멈춰야 해서 충격이 커진다. 그래서 사람 곁에서 일하는 로봇은 기어비를 줄이거나 다른 방법을 쓴다(16장). 중력을 들 필요가 없는 수평 팔(SCARA)은 직접 구동을 쓰기도 한다.</p>
+</blockquote>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=3702">1:01:42 모터와 기어 속으로</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3794">1:03:14 PUMA의 기어비</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=3986">1:06:26 링크가 느끼는 모터 관성</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=4178">1:09:38 η²배와 충돌의 위험</a></p>
+<h2>14.9 기어가 크면 관절이 따로 논다</h2>
+<p>12장의 종이 팔에서 어깨의 M₁₁은 자세에 따라 1448에서 3687 g·cm²로 바뀌었다. 게다가 얽힘 칸 M₁₂ = 320 + 600 cos θ₂가 팔꿈치의 움직임을 어깨에 전한다(편 팔에서 920).</p>
+<p>기어는 이 그림을 바꾼다. 모터 몫 η²I<sub>m</sub>은 자기 관절의 대각 칸에만 더해지고, 자세와 상관없이 일정하다. 얽힘 칸 M₁₂는 그대로다.</p>
+<figure data-fig="fig14_9"><div class="fig-title">기어비가 클수록 자세가 바뀌어도 관절의 무게감이 거의 같다</div><div class="fig-body"></div><div class="fig-note">12장의 종이 팔(손에 든 물건 없음) 어깨 관성 M₁₁에 모터 몫 η²I<sub>m</sub>(I<sub>m</sub> = 0.5 g·cm²)을 더했다. 막대 길이는 편 팔의 I<sub>eff</sub>에 맞춰 줄였다.</div><figcaption>그림 14-9 · 직접 바꿔 보기: 종이 팔 어깨의 유효 관성</figcaption></figure>
+<p>해 볼 것 세 가지:</p>
+<ol>
+<li>η = 1(직접 구동): 무거울 때와 가벼울 때가 2.55배 차이 난다. 얽힘 비율 M₁₂ ÷ I<sub>eff</sub>는 25%다.</li>
+<li>η = 100: I<sub>eff</sub>가 6448 ~ 8687로 1.35배 차이뿐이다. 얽힘 비율은 11%로 준다.</li>
+<li>η = 300: 1.05배다. 자세가 어떻든 관절의 무게감이 거의 같다.</li>
+</ol>
+<p>기어비가 크면 관절마다 관성이 거의 일정하고, 다른 관절이 거는 얽힘 토크는 큰 관성에 비해 작아진다. 그 얽힘은 작은 외란으로 보고 단단한 PD가 막는다(14.6절). 그래서 관절마다 고정 이득의 PD를 따로 다는 <strong>독립 관절 제어</strong>(independent joint control)가 잘 통한다. 강의의 PUMA 시뮬레이터에서 "동역학 없는 관절 제어"로 바꿔 돌린 것이 이 방식이다.</p>
+<h3>고정 이득은 어디에 맞추나</h3>
+<p>유효 관성이 I<sub>min</sub>과 I<sub>max</sub> 사이에서 바뀔 때, 강의는 두 값의 기하 평균 √(I<sub>min</sub> I<sub>max</sub>)에 이득을 맞추라고 한다. 그러면 ω<sub>n</sub>이 위아래로 같은 비율 (I<sub>max</sub> / I<sub>min</sub>)<sup>1/4</sup>만큼만 벗어난다.</p>
+<p>예를 들어 기하 평균에서 ω<sub>n</sub> = 20 rad/s, ζ = 1로 맞춘다. 직접 구동이면 ω<sub>n</sub>이 15.8 ~ 25.3 rad/s로 퍼지고, 가장 무거울 때 ζ = 0.79가 되어 1.7% 넘친다. η = 100이면 18.6 ~ 21.5 rad/s, ζ ≥ 0.93이다.</p>
+<blockquote>
+<p><strong>알아 두기.</strong> 큰 기어에는 대가가 있다. 마찰과 충돌 때의 무게감이 η²배로 커지고, 기어 이 사이의 틈(백래시)과 휨이 공진 진동수를 낮춰 14.3절의 ω 한계를 끌어내린다. 그래서 빠르고 정밀한 팔일수록 기어를 줄이고, 15장의 모델 기반 제어로 얽힘을 직접 푼다.</p>
+</blockquote>
+<p>이것으로 14강 내용이 끝난다. 다음 15강에서는 이 장의 제어 분할을 여러 관절의 팔 전체로 넓히고, 손끝을 작업 공간에서 직접 제어한다.</p>
+<p>영상에서 보기: <a href="https://youtu.be/U3diaQ-iU0I?t=4209">1:10:09 모터 쪽과 링크 쪽의 식</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=4241">1:10:41 직접 구동</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=4273">1:11:13 링크 관성이 바뀌면</a> · <a href="https://youtu.be/U3diaQ-iU0I?t=4306">1:11:46 기하 평균으로 이득 고르기</a></p>
+<h2>14.10 연습문제</h2>
+<p>종이에 식을 적으며 푼다. 답은 문제 7개 아래에 있다. 계산기는 써도 된다.</p>
+<ol>
+<li>블록 m = 4 kg에 PD 이득 k<sub>p</sub> = 100 N/m, k<sub>v</sub> = 8 N·s/m을 준다. 닫힌 루프의 ω<sub>n</sub>, ζ, 넘침(%), 첫 봉우리 시각 t<sub>p</sub>를 구하라.</li>
+<li>문제 1의 블록에서<ol>
+<li>k<sub>p</sub> = 100 그대로 임계 감쇠가 되는 k<sub>v</sub>는?</li>
+<li>ω<sub>n</sub> = 8 rad/s, ζ = 1이 되는 k<sub>p</sub>, k<sub>v</sub>는?</li>
+<li>구조의 가장 낮은 공진 진동수가 30 rad/s다. 절반 규칙으로 보면 ω<sub>n</sub> = 8은 괜찮은가? 20은?</li>
+</ol>
+</li>
+<li>세로 레일을 따라 위아래로 움직이는 블록(m = 3 kg, x는 위가 +)이 있다. 운동 방정식은 3ẍ + 3g + 2 sign(ẋ) = F이다(g = 9.8 m/s², 마찰 2 N). ω<sub>n</sub> = 10 rad/s, ζ = 1로 궤적을 따라가는 제어 분할 F = αF′ + β를 설계하라. α, β, F′, k<sub>p</sub>′, k<sub>v</sub>′와 닫힌 루프 단단함을 적어라.</li>
+<li>문제 3의 블록에 누군가 150 g짜리 물건을 올렸다. 제어기는 이것을 모르고 α = 3, β를 그대로 쓴다.<ol>
+<li>멈춰 있을 때 정상 상태 오차는 얼마이고, 어느 쪽으로 생기나?</li>
+<li>오차를 0.1 cm 안으로 줄이려면 k<sub>p</sub>′와 ω<sub>n</sub>은 적어도 얼마여야 하나?</li>
+</ol>
+</li>
+<li>세워 든 링크(I₀ = 3.33 × 10⁻⁴ kg·m², m g l<sub>c</sub> = 0.049 N·m)를 ω = 30 rad/s, ζ = 1로 θ<sub>d</sub> = 30°에 든다. 중력 보상은 없다. k<sub>p</sub>, k<sub>v</sub>를 구하고, 처짐을 어림하라. 실제 처짐이 어림보다 큰가 작은가? 그 까닭은?</li>
+<li>블록(m = 2 kg, k<sub>p</sub>′ = 100, k<sub>v</sub>′ = 20)이 2 N의 일정한 외란을 받는다.<ol>
+<li>PD만이면 정상 상태 오차는?</li>
+<li>k<sub>i</sub>′ = 300을 더하면 결국 오차는 얼마가 되나? 까닭을 식으로 보여라.</li>
+<li>k<sub>i</sub>′ = 2400이면 어떻게 되나?</li>
+<li>이 블록을 50 cm 떨어진 곳으로 빠르게 옮기는 동안에도 적분을 켜 두면 무슨 일이 생기나?</li>
+</ol>
+</li>
+<li>모터 회전자 관성 I<sub>m</sub> = 0.5 g·cm², 기어비 η = 100인 관절이 종이 팔 어깨를 돌린다. 링크 쪽 관성은 자세에 따라 1448 ~ 3687 g·cm²다.<ol>
+<li>유효 관성의 범위와, 가장 무거울 때 ÷ 가장 가벼울 때를 구하라. 직접 구동(η = 1)과 비교하라.</li>
+<li>링크에 0.049 N·m를 내려면 모터 토크는? 링크가 2 rad/s로 돌면 모터는?</li>
+<li>기하 평균에 맞춰 ω<sub>n</sub> = 20 rad/s, ζ = 1인 고정 이득을 주면, 자세에 따라 ω<sub>n</sub>은 어디부터 어디까지 바뀌나?</li>
+</ol>
+</li>
+</ol>
+<h3>답</h3>
+<p><strong>답 1.</strong> ω<sub>n</sub> = √(100/4) = 5 rad/s, ζ = 8 / (2√(4 × 100)) = 8/40 = 0.2다. √(1 − 0.04) = 0.980이라 넘침은 e<sup>−π × 0.2 / 0.980</sup> = e<sup>−0.641</sup> = 0.527, <b>약 53%</b>다. t<sub>p</sub> = π / (5 × 0.980) = <b>0.64초</b>다.</p>
+<p>정착 시간 어림은 4 / (0.2 × 5) = 4초로 아주 길다.</p>
+<p><strong>답 2.</strong></p>
+<ul>
+<li>k<sub>v</sub> = 2√(m k<sub>p</sub>) = 2√400 = <b>40 N·s/m</b>.</li>
+<li>k<sub>p</sub> = mω<sub>n</sub>² = 4 × 64 = <b>256 N/m</b>, k<sub>v</sub> = 2mζω<sub>n</sub> = 2 × 4 × 1 × 8 = <b>64 N·s/m</b>.</li>
+<li>절반 규칙의 상한은 15 rad/s다. 8은 괜찮고, 20은 공진에 너무 가까워 떨릴 수 있다.</li>
+</ul>
+<p><strong>답 3.</strong> α는 추정 질량 3 kg, β는 모델로 계산한 b = 3 × 9.8 + 2 sign(ẋ) = 29.4 + 2 sign(ẋ) N이다. k<sub>p</sub>′ = ω<sub>n</sub>² = 100, k<sub>v</sub>′ = 2ζω<sub>n</sub> = 20이다.</p>
+<div class="math" data-tex="F = 3F&#x27; + 29.4 + 2\,\mathrm{sign}(\dot x)"></div>
+<div class="math" data-tex="F&#x27; = \ddot x_d - 20\,(\dot x - \dot x_d) - 100\,(x - x_d)"></div>
+<p>닫힌 루프 단단함은 αk<sub>p</sub>′ = 3 × 100 = <b>300 N/m</b>다. 오차는 ë + 20ė + 100e = 0을 따라 넘치지 않고 줄어든다.</p>
+<p><strong>답 4.</strong></p>
+<ul>
+<li>물건의 무게 0.15 × 9.8 = 1.47 N이 아래로 누르는 외란이다. 멈춰 있으면 3 × 100 × e = −1.47에서 e = −0.0049 m, <b>0.49 cm 아래로</b> 처진다. 오차는 외란 ÷ 단단함(300 N/m)이다.</li>
+<li>1.47 / (3 k<sub>p</sub>′) ≤ 0.001에서 k<sub>p</sub>′ ≥ <b>490</b>이다. ω<sub>n</sub> = √490 ≈ <b>22.1 rad/s</b>, k<sub>v</sub>′ = 2ω<sub>n</sub> ≈ 44다. 또는 β에 0.15 kg의 무게를 넣거나 적분 항을 더한다.</li>
+</ul>
+<p><strong>답 5.</strong> k<sub>p</sub> = I₀ω² = 3.33 × 10⁻⁴ × 900 = <b>0.3 N·m/rad</b>, k<sub>v</sub> = 2I₀ω = <b>0.02 N·m·s/rad</b>다. 어림은 G(30°) / k<sub>p</sub> = 0.049 × 0.866 / 0.3 = 0.141 rad = <b>8.1°</b>다. 실제로 풀면 링크는 21.3°에 멈춰 <b>8.7°</b> 처진다. 어림보다 크다.</p>
+<p>처지면서 링크가 수평 쪽으로 가니 cos θ가 커져 중력 토크가 G(30°)보다 커지기 때문이다. (14.6절의 수평 예는 거꾸로 cos θ가 작아져 어림보다 덜 처졌다.)</p>
+<p><strong>답 6.</strong></p>
+<ul>
+<li>F<sub>d</sub> / (m k<sub>p</sub>′) = 2 / 200 = 0.01 m, <b>1 cm</b>.</li>
+<li>결국 <b>0</b>이 된다. 닫힌 루프 식을 한 번 미분하면 14.7절의 3차 식(a = 20, b = 100, c = 300)이 된다. 다 가라앉으면 e의 미분이 모두 0이라 300e = 0이다(시뮬레이션으로는 0.71 cm까지 밀렸다가 2초 무렵 거의 0).</li>
+<li>ab = 20 × 100 = 2000 &lt; 2400이라 안정 조건을 어긴다. 출렁임이 점점 커진다.</li>
+<li>움직이는 동안 큰 오차가 계속 쌓여 적분 값이 커진다. 목표에 닿아도 쌓인 값을 다 풀 때까지 밀어서 크게 지나친다(적분 누적). 목표 근처에서만 적분을 켠다.</li>
+</ul>
+<p><strong>답 7.</strong></p>
+<ul>
+<li>η² I<sub>m</sub> = 5000이라 I<sub>eff</sub> = <b>6448 ~ 8687 g·cm²</b>, 비율 <b>1.35배</b>다. 직접 구동이면 1448 ~ 3688로 2.55배다.</li>
+<li>τ<sub>m</sub> = 0.049 / 100 = <b>0.00049 N·m</b>, 모터 빠르기 = 100 × 2 = <b>200 rad/s</b>다.</li>
+<li>비율의 네제곱근은 1.347<sup>1/4</sup> = 1.077이다. ω<sub>n</sub>은 20 / 1.077 = <b>18.6</b>에서 20 × 1.077 = <b>21.5 rad/s</b>까지 바뀐다.</li>
+</ul>
+<h3>파이썬으로 확인</h3>
+<p>파이썬(numpy)이 있으면 아래를 붙여 넣어 돌려 본다. 시뮬레이션은 2 ms 간격의 룽게-쿠타 4단(그림들과 같은 방법)이다. 주석의 값이 그대로 나온다.</p>
+<pre><code class="language-python">import numpy as np
+
+def R(v, n=2):
+    return round(float(v), n) + 0.0          # 보기 좋게 반올림 (−0.0은 0.0으로)
+
+def pd_info(m, kp, kv):
+    &quot;&quot;&quot;닫힌 루프 ω_n, ζ, 넘침(%), 첫 봉우리 시각 t_p.&quot;&quot;&quot;
+    w, z = np.sqrt(kp / m), kv / (2 * np.sqrt(m * kp))
+    if z &gt;= 1:
+        return R(w), R(z), 0.0, None
+    over = np.exp(-np.pi * z / np.sqrt(1 - z * z)) * 100
+    return R(w), R(z), R(over, 1), R(np.pi / (w * np.sqrt(1 - z * z)), 3)
+
+def rk4(f, s0, T, dt=0.002):
+    &quot;&quot;&quot;고정 간격 룽게-쿠타 4단. 칸 경계에서 바뀌는 힘을 정확히 넣으려고
+    첫 단계는 칸의 바로 오른쪽, 끝 단계는 바로 왼쪽에서 잰다.&quot;&quot;&quot;
+    s, out = np.array(s0, float), []
+    for i in range(round(T / dt)):
+        t = i * dt
+        k1 = f(t + 1e-9, s)
+        k2 = f(t + dt / 2, s + dt / 2 * k1)
+        k3 = f(t + dt / 2, s + dt / 2 * k2)
+        k4 = f(t + dt - 1e-9, s + dt * k3)
+        s = s + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+        out.append((t + dt, s.copy()))
+    return out
+
+def step(m, kp, kv, goal=10, T=4):
+    &quot;&quot;&quot;0 → 10 cm 계단 응답의 넘침(%)과 정착 시간(2%).&quot;&quot;&quot;
+    f = lambda t, s: np.array([s[1], (-kp * (s[0] - goal) - kv * s[1]) / m])
+    run = rk4(f, [0, 0], T)
+    x = np.array([s[0] for t, s in run])
+    tt = np.array([t for t, s in run])
+    out = np.where(abs(x - goal) &gt; 0.02 * goal)[0]
+    return R((x.max() - goal) / goal * 100, 1), R(tt[out[-1]])
+
+# 14.2~14.3 블록 2 kg
+print(pd_info(2, 200, 16), step(2, 200, 16))  # (10.0, 0.4, 25.4, 0.343) (25.4, 0.84)
+print(pd_info(2, 200, 40), step(2, 200, 40))  # (10.0, 1.0, 0.0, None) (0.0, 0.58)
+print(step(2, 200, 32), step(2, 200, 80))     # (1.5, 0.37) (0.0, 1.49)
+# 문제 1, 2
+print(pd_info(4, 100, 8))                     # (5.0, 0.2, 52.7, 0.641)
+print(R(2 * np.sqrt(4 * 100)), 4 * 8**2, 2 * 4 * 1 * 8)   # 40.0 256 64
+
+# 14.5 궤적 따라가기: ω = 10, 추정 질량 = 0.8 × 실제 질량
+def traj(t):
+    if t &lt; 0: return 0, 0, 0
+    if t &gt; 1: return 10, 0, 0
+    return 10 * (3*t**2 - 2*t**3), 10 * (6*t - 6*t**2), 10 * (6 - 12*t)
+
+def track(mode, w=10, r=0.8):
+    kp, kv = w * w, 2 * w
+    def f(t, s):
+        p, pd, pdd = traj(t)
+        if mode == 'pd':
+            Fp = -kv * s[1] - kp * (s[0] - p)
+        elif mode == 'ff':
+            Fp = pdd
+        else:
+            Fp = pdd - kv * (s[1] - pd) - kp * (s[0] - p)
+        return np.array([s[1], r * Fp])       # m ẍ = (추정 질량) F′
+    run = rk4(f, [0, 0], 1.6)
+    err = max(abs(s[0] - traj(t)[0]) for t, s in run)
+    return R(err), R(run[-1][1][0])            # 가장 큰 오차, 1.6초의 위치 (cm)
+
+print([track(m) for m in ['pd', 'ff', 'ff+pd']])
+# [(2.86, 10.01), (2.0, 8.0), (0.09, 10.0)]
+
+# 문제 4: 3 kg으로 아는 블록에 150 g이 더 올라갔다
+Fd = -0.15 * 9.8
+kp_need = -Fd / (3 * 0.001)
+print(R(Fd / (3 * 100) * 100), R(kp_need, 1), R(np.sqrt(kp_need), 1))  # -0.49 490.0 22.1
+
+# 14.6 세워 든 링크 (10 cm, 100 g)를 PD로 든다. 아래로 늘어진 자세에서 출발
+I0, MGL = 0.1 * 0.1**2 / 3, 0.1 * 9.8 * 0.05
+def hold(thd_deg, w, comp=False, T=2):
+    kp, kv, q = I0 * w * w, 2 * I0 * w, np.radians(thd_deg)
+    def f(t, s):
+        G = MGL * np.cos(s[0])
+        tau = -kp * (s[0] - q) - kv * s[1] + (G if comp else 0)
+        return np.array([s[1], (tau - G) / I0])
+    return R(np.degrees(rk4(f, [-np.pi / 2, 0], T, 0.001)[-1][1][0]))
+
+print(hold(0, 20), hold(30, 20), hold(30, 60), hold(30, 20, comp=True))
+# -19.81 9.22 27.93 30.0
+print(hold(90, 20), hold(90, 10), R(np.sqrt(MGL / I0)))   # 90.0 6.28 12.12
+kp = I0 * 30**2                                          # 문제 5
+est = np.degrees(MGL * np.cos(np.radians(30)) / kp)
+print(R(kp, 3), R(2 * I0 * 30, 3), R(est), R(30 - hold(30, 30)))   # 0.3 0.02 8.1 8.72
+
+# 14.7 PID: 블록 2 kg, kp′ = 100, kv′ = 20. 0.5초부터 2 N (e는 cm)
+def pid(ki, Fd=2):
+    f = lambda t, s: np.array([
+        s[1],
+        -20 * s[1] - 100 * s[0] - ki * s[2] + (100 * Fd / 2 if t &gt;= 0.5 else 0),
+        s[0]])                                 # s = (e, ė, ∫e dt)
+    e = np.array([s[0] for t, s in rk4(f, [0, 0, 0], 4)])
+    return R(abs(e).max()), R(e[-1], 3)       # 가장 큰 오차, 4초의 오차
+
+print(pid(0), pid(300), pid(1000))   # (1.0, 1.0) (0.71, 0.0) (0.55, 0.005)
+# e = e^(st)를 넣으면 s³ + 20s² + 100s + kᵢ′ = 0.
+# 실수부가 양수인 근이 있으면 출렁임이 커진다.
+unstable = lambda ki: np.roots([1, 20, 100, ki]).real.max() &gt; 0
+print(unstable(1000), unstable(2400))          # False True
+
+# 14.8~14.9 유효 관성 (g·cm²): 종이 팔 어깨 M₁₁ + η² × 회전자 0.5
+IL = np.array([2487 + 1200 * np.cos(np.radians(150)), 3687])
+for eta in [1, 100, 300]:
+    Ie = IL + eta**2 * 0.5
+    q = (Ie[1] / Ie[0]) ** 0.25    # 기하 평균에 맞춘 고정 이득: ω가 바뀌는 비율
+    print(eta, Ie.round(), R(Ie[1] / Ie[0], 3), R(20 / q), R(20 * q), R(1 / q, 3))
+# 1 [1448. 3688.] 2.546 15.83 25.26 0.792
+# 100 [6448. 8687.] 1.347 18.56 21.55 0.928
+# 300 [46448. 48687.] 1.048 19.77 20.24 0.988
+print(0.049 / 100, 2 * 100)                    # 0.00049 200
+</code></pre>
+<h3>스탠퍼드 숙제</h3>
+<p><a href="https://see.stanford.edu/Course/CS223A">스탠퍼드 강의 페이지</a>의 Homework 6에서 1번 전부(고유 진동수와 감쇠비, 임계 감쇠 PD, 쿨롱 마찰이 있는 제어 분할, 외란의 정상 상태 오차)는 이 장으로 풀 수 있다. 2번 (a), (b)(관절 2를 잠갔을 때 관절 1이 느끼는 관성과 감쇠비)도 이 장의 내용이다.</p>
+<p>2번 (c), (d)는 15장을 배운 뒤에 푼다. 풀이는 같은 페이지의 Solution 6에 있다.</p>
+<p>다 풀었으면 <a href="https://youtu.be/U3diaQ-iU0I">14강 영상</a>을 한 번 본다.</p>
+<div class="chapter-nav"><a href="ch13.html">← 13장. 제어의 첫걸음: 용수철, 댐퍼, 그리고 에너지</a><a href="ch15.html">15장. 팔 전체를 제어하기: 계산 토크 제어와 작업 공간 제어 →</a></div>
+<footer>스탠퍼드 CS223A(Oussama Khatib, 2008)를 듣고 한국어로 새로 쓴 독학 정리다. 스탠퍼드 공식 자료가 아니다.
+강의 자료는 <a href="https://see.stanford.edu/Course/CS223A">Stanford Engineering Everywhere</a>가 Creative Commons Attribution 3.0으로 공개했다.</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script>
+document.querySelectorAll('.math').forEach(el => {
+  try { katex.render(el.dataset.tex, el, {displayMode: true, throwOnError: false, strict: false}); }
+  catch (e) { el.textContent = el.dataset.tex; }
+});
+</script>
+<script src="assets/figures.js"></script>
+<script src="assets/figs/ch14.js"></script>
+<script>FigKit.renderAll();</script>
+</body>
+</html>
